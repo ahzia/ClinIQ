@@ -25,6 +25,8 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
   - Mapping
   - Quality
   - Corrections
+- Mobile-friendly quick nav chips added in header for small screens.
+- Current page context pill added in header for better orientation.
 
 ## B) API Connectivity and CORS-safe Integration
 - Frontend API client implemented (`apiGet`, `apiPost`, `apiPatch`) with no-store fetch and error handling.
@@ -47,6 +49,7 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
   - list + details split view,
   - actionable context panel.
 - Top cards now use full page width behavior per feedback.
+- Alert detail experience remains split-view and was kept stable after iterative polish.
 
 ## D) Sources Page (Major Redesign)
 - Source Explorer created with dual-pane workflow:
@@ -67,6 +70,7 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
   - sticky header,
   - no wrapping cells (`whitespace-nowrap`),
   - local overflow container.
+- Additional clarity chips added (source count, file count, selected file context).
 
 ## E) Mapping Page
 - Mapping summary integrated with breakdown progress bars:
@@ -78,6 +82,15 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
 - Mapping rerun action integrated (`POST /mapping/rerun`) with scope logic:
   - all / file / source
 - Alerts section implemented with severity pills and expandable list.
+- Alert triage improvements added:
+  - severity-prioritized ordering (high -> medium -> low),
+  - filters (`all`, `high`, `needs_review`, `identity/linking`),
+  - reset filter action,
+  - severity counters for quick scanning.
+- Explainability panel added for linking strategy:
+  - `case_id` primary,
+  - `patient_id + datetime window` fallback,
+  - low-confidence goes to manual review.
 - Canonical model integration added (`/mapping/canonical-model`) with:
   - search
   - compact select mode
@@ -91,6 +104,11 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
 - KPI counters integrated.
 - By-source quality view implemented with source picker + progress bars.
 - Selected-source cross-highlighting from global selection context supported.
+- Triage and readability improvements added:
+  - quality filters (`all`, `healthy`, `needs_attention`, `critical`),
+  - interpretation panel explaining clean/missing/incorrect signals,
+  - reset filter action,
+  - safe empty handling (dropdown disabled when filtered set is empty).
 
 ## G) Corrections Page
 - Corrections queue integrated (`/corrections/queue`) with compact-first list behavior.
@@ -104,12 +122,23 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
   - apply-as-rule toggle
   - target override for edit
 - Refresh after mutation implemented.
+- Queue triage improvements added:
+  - prioritized ordering (pending first, then lower confidence first),
+  - filters (`all`, `pending_review`, `low_confidence`, `accepted`, `rejected`),
+  - reset filter action,
+  - low-confidence row highlight for faster review.
+- Review strategy guidance panel added for operator workflow.
 
 ## H) Scrolling and Layout Improvements
 - Sidebar no longer coupled to main page scroll.
 - Main content uses controlled overflow and avoids global horizontal scroll.
 - Long lists moved to local scroll/expansion patterns.
 - Global scrollbar styling upgraded for premium look.
+- Scroll/table container sizing fixed so wide previews remain inside page bounds while scrolling locally.
+- Dropdowns upgraded globally to premium style:
+  - custom arrow icon,
+  - hover/focus states,
+  - consistent dark glass look across pages.
 
 ## 2) Pending Frontend Work
 
@@ -152,7 +181,8 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
    - focus states and ARIA checks for interactive containers.
 
 ## Optional UX Enhancements
-- Alert filtering chips (`all`, `high`, `needs review`) on overview + mapping.
+- Alert filtering chips on mapping are now implemented.
+- Optional next: add similar filtering chips to overview alerts.
 - Compact-density toggle for data-heavy lists.
 - Export visible rows from preview tables.
 
