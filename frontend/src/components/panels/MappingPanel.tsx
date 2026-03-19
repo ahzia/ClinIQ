@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { RotateCcw, AlertTriangle, Database, Sparkles } from "lucide-react";
 
 import GlassCard from "../ui/GlassCard";
+import { HelpHint } from "../ui/HelpHint";
 import MappingIntelligenceSection from "./MappingIntelligenceSection";
 import { apiGet, apiPost } from "@/lib/api";
 
@@ -304,24 +305,11 @@ export default function MappingPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="text-sm font-semibold text-zinc-100">
-            Mapping Control
-          </div>
-          <div className="mt-2 text-sm text-zinc-400">
-            Trust-first mapping insights and rerun orchestration.
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-            <div className="text-xs text-zinc-400">Auto-rerun</div>
-            <div className="mt-1 text-sm font-semibold text-zinc-100">
-              Manual mode
-            </div>
-          </div>
-        </div>
+      <div className="text-sm font-semibold text-zinc-100">
+        <HelpHint
+          label="Field matching"
+          hint="Connecting columns in your file to the fields ClinIQ expects in the target model."
+        />
       </div>
 
       <MappingIntelligenceSection selectedFileId={selectedFileId} />
@@ -350,7 +338,7 @@ export default function MappingPanel({
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-zinc-100">
-                      Field confidence breakdown
+                      Match confidence summary
                     </div>
                     <div className="mt-1 text-xs text-zinc-400">
                       {summary?.summary.total_fields_seen ?? 0} total fields
@@ -442,9 +430,6 @@ export default function MappingPanel({
                       <div className="text-sm font-semibold text-zinc-100">
                         Rerun mapping
                       </div>
-                      <div className="mt-1 text-xs text-zinc-400">
-                        Queue a background mapping job (stub).
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -490,7 +475,7 @@ export default function MappingPanel({
                     className="mt-1 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500/80 via-sky-500/80 to-indigo-500/80 px-4 py-3 text-sm font-semibold text-black disabled:opacity-50"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    {rerunLoading ? "Queuing..." : "Queue rerun"}
+                    {rerunLoading ? "Starting…" : "Start re-check"}
                   </motion.button>
                 </div>
               </div>
@@ -498,7 +483,7 @@ export default function MappingPanel({
               <div className="mt-6">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-semibold text-zinc-100">
-                    Mapping alerts
+                    Matching issues
                   </div>
                   <button
                     type="button"
@@ -630,7 +615,7 @@ export default function MappingPanel({
 
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-semibold text-zinc-100">
-                    Canonical model
+                    Target data model
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-xs text-zinc-400">
@@ -734,7 +719,7 @@ export default function MappingPanel({
                             </div>
                             <StatusPill
                               tone="neutral"
-                              text="Canonical"
+                              text="Standard"
                             />
                           </div>
 

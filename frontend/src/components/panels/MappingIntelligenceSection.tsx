@@ -15,15 +15,6 @@ import {
 import GlassCard from "../ui/GlassCard";
 import { apiGet, apiPost } from "@/lib/api";
 
-type RuntimeConfigResponse = {
-  case_link_window_hours: number;
-  identity_conflict_high_threshold: number;
-  processed_db_path: string;
-  ai_enabled: boolean;
-  ai_provider: string;
-  ai_model: string;
-};
-
 type FileRow = { id: string; name: string; source_id: string };
 type FilesListResponse = { files: FileRow[] };
 
@@ -149,7 +140,6 @@ export default function MappingIntelligenceSection({
 }: {
   selectedFileId: string | null;
 }) {
-  const [runtime, setRuntime] = useState<RuntimeConfigResponse | null>(null);
   const [files, setFiles] = useState<FileRow[]>([]);
   const [localFileId, setLocalFileId] = useState<string>("");
 
@@ -175,20 +165,6 @@ export default function MappingIntelligenceSection({
   const [expandedExplain, setExpandedExplain] = useState<string | null>(null);
 
   const effectiveFileId = localFileId || selectedFileId || "";
-
-  useEffect(() => {
-    let m = true;
-    apiGet<RuntimeConfigResponse>("/meta/runtime-config")
-      .then((r) => {
-        if (m) setRuntime(r);
-      })
-      .catch(() => {
-        if (m) setRuntime(null);
-      });
-    return () => {
-      m = false;
-    };
-  }, []);
 
   useEffect(() => {
     let m = true;
@@ -343,14 +319,7 @@ export default function MappingIntelligenceSection({
         <div>
           <div className="flex items-center gap-2">
             <Wand2 className="h-4 w-4 text-cyan-200" />
-            <div className="text-sm font-semibold text-zinc-100">
-              Demo pipeline — mapping intelligence
-            </div>
-          </div>
-          <div className="mt-2 text-xs text-zinc-400">
-            Live hypotheses, confidence routing, optional LLM-assisted scoring, apply routing to
-            the correction queue, and SQL schema conformance — all from the current backend
-            contract.
+            <div className="text-sm font-semibold text-zinc-100">Match evidence</div>
           </div>
         </div>
         <motion.button
@@ -361,33 +330,13 @@ export default function MappingIntelligenceSection({
           className="inline-flex items-center gap-2 rounded-2xl bg-white/5 px-4 py-2 text-xs font-semibold text-cyan-200 ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${intelLoading ? "animate-spin" : ""}`} />
-          Refresh data
+          Refresh
         </motion.button>
       </div>
 
-      {runtime ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          <MiniPill
-            tone="neutral"
-            text={`Link window ${runtime.case_link_window_hours}h`}
-          />
-          <MiniPill
-            tone="neutral"
-            text={`Identity threshold ${runtime.identity_conflict_high_threshold}`}
-          />
-          <MiniPill
-            tone={runtime.ai_enabled ? "good" : "warn"}
-            text={runtime.ai_enabled ? "LLM path enabled" : "Deterministic baseline"}
-          />
-          <MiniPill tone="neutral" text="Vendor-neutral scoring" />
-        </div>
-      ) : (
-        <div className="mt-4 text-xs text-zinc-500">Runtime config unavailable.</div>
-      )}
-
       <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
         <div className="md:col-span-2">
-          <label className="text-xs text-zinc-400">File for pipeline</label>
+          <label className="text-xs text-zinc-400">File</label>
           <select
             value={localFileId}
             onChange={(e) => setLocalFileId(e.target.value)}
@@ -427,7 +376,7 @@ export default function MappingIntelligenceSection({
 
       {routeSummary ? (
         <div className="mt-5 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-          <div className="text-xs font-semibold text-zinc-300">Route summary (from confidence)</div>
+          <div className="text-xs font-semibold text-zinc-300">Routing</div>
           <div className="mt-3 flex flex-wrap gap-2">
             <MiniPill tone="good" text={`Auto ${routeSummary.auto}`} />
             <MiniPill tone="warn" text={`Warning ${routeSummary.warning}`} />
@@ -440,7 +389,7 @@ export default function MappingIntelligenceSection({
                 checked={includeWarnings}
                 onChange={(e) => setIncludeWarnings(e.target.checked)}
               />
-              Include warnings in manual queue
+              Include warnings
             </label>
             <motion.button
               type="button"
@@ -450,7 +399,7 @@ export default function MappingIntelligenceSection({
               className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500/70 to-indigo-500/70 px-4 py-2 text-xs font-semibold text-black disabled:opacity-50"
             >
               <GitBranch className="h-3.5 w-3.5" />
-              {routeLoading ? "Applying…" : "Apply routing to queue"}
+              {routeLoading ? "Applying…" : "Send to review queue"}
             </motion.button>
           </div>
           {routeResult ? (

@@ -340,13 +340,9 @@ export default function SourcesPanel({
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="text-sm font-semibold text-zinc-100">
-            Source Explorer
+            Browse your data
           </div>
-          <div className="mt-1 text-sm text-zinc-400">
-            Select a source and file to inspect inferred schema, mapping trust,
-            and previewed canonical fields.
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <TonePill
               tone="neutral"
               text={`Sources: ${sources?.sources?.length ?? 0}`}
@@ -370,7 +366,7 @@ export default function SourcesPanel({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search sources..."
+              placeholder="Search data sources..."
               className="w-52 bg-transparent text-sm text-white placeholder:text-zinc-500 focus:outline-none"
             />
           </div>
@@ -384,7 +380,7 @@ export default function SourcesPanel({
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-cyan-200" />
-                <div className="text-sm font-semibold text-zinc-100">Library</div>
+                <div className="text-sm font-semibold text-zinc-100">Your files</div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -583,7 +579,7 @@ export default function SourcesPanel({
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-cyan-200" />
                 <div className="text-sm font-semibold text-zinc-100">
-                  File inspection
+                  File details
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -607,7 +603,7 @@ export default function SourcesPanel({
                       : "bg-white/5 ring-white/10 text-zinc-300 hover:bg-white/10"
                   }`}
                 >
-                  Schema
+                  Structure
                 </button>
               </div>
             </div>
@@ -668,7 +664,7 @@ export default function SourcesPanel({
                     <GlassCard className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-xs text-zinc-400">Schema inference</div>
+                          <div className="text-xs text-zinc-400">Detected format</div>
                           <div className="mt-1 text-sm font-semibold text-zinc-100">
                             {fileDetails.inference.detected_schema_variant}
                           </div>
@@ -702,7 +698,7 @@ export default function SourcesPanel({
                       <GlassCard className="p-4">
                         <div className="flex items-center gap-2">
                           <ListChecks className="h-4 w-4 text-cyan-200" />
-                          <div className="text-sm font-semibold text-zinc-100">Mapping trust</div>
+                          <div className="text-sm font-semibold text-zinc-100">Match quality</div>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <TonePill
@@ -727,7 +723,7 @@ export default function SourcesPanel({
                       <GlassCard className="p-4">
                         <div className="flex items-center gap-2">
                           <Database className="h-4 w-4 text-cyan-200" />
-                          <div className="text-sm font-semibold text-zinc-100">Quality signals</div>
+                          <div className="text-sm font-semibold text-zinc-100">Data health checks</div>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <TonePill
@@ -777,7 +773,7 @@ export default function SourcesPanel({
                     <GlassCard className="p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-xs text-zinc-400">Preview kind</div>
+                          <div className="text-xs text-zinc-400">Data type</div>
                           <div className="mt-1 text-sm font-semibold text-zinc-100">
                             {preview.kind}
                           </div>

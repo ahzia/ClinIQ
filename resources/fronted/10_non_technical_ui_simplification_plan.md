@@ -162,12 +162,12 @@ So: simplify language, not capability.
 
 ## 7) Quick Implementation Checklist for Frontend Developer
 
-- [ ] Replace core labels using copy map above.
-- [ ] Refactor Overview into outcome-first layout.
-- [ ] Move API/contract/runtime technical details into new `System/Diagnostics` section.
-- [ ] Keep demo path pages free of low-level backend jargon.
-- [ ] Add helper tooltips for unavoidable terms (e.g., "field match").
-- [ ] Keep all existing endpoint wiring and intelligence evidence visible.
+- [x] Replace core labels using copy map above.
+- [x] Refactor Overview into outcome-first layout.
+- [x] Move API/contract/runtime technical details into new `System/Diagnostics` section.
+- [x] Keep demo path pages free of low-level backend jargon.
+- [x] Add helper tooltips for unavoidable terms (e.g., "field match").
+- [x] Keep all existing endpoint wiring and intelligence evidence visible.
 
 ---
 

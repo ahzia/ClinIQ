@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ClinIQ",
-  description: "Clinical Intelligence Querying - data harmonization with trust layers",
+  title: "ClinIQ Workspace",
+  description: "Review and fix clinical file mapping with clear signals.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col text-zinc-100">{children}</body>
     </html>
   );
 }

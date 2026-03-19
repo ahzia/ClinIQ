@@ -163,14 +163,11 @@ export default function QualityPanel({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
-          <div className="text-sm font-semibold text-zinc-100">Quality Insights</div>
-          <div className="mt-2 text-sm text-zinc-400">
-            Understand data cleanliness, missing signals, and anomaly patterns across sources.
-          </div>
+          <div className="text-sm font-semibold text-zinc-100">Data health</div>
         </div>
         <div className="flex items-center gap-2 rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
           <ShieldCheck className="h-4 w-4 text-emerald-200" />
-          <span className="text-xs text-zinc-400">Trust score</span>
+          <span className="text-xs text-zinc-400">Score</span>
           <span className="text-sm font-semibold text-zinc-100">
             {summary?.summary.overall_quality_score ?? "—"}
           </span>
@@ -199,10 +196,7 @@ export default function QualityPanel({
                   <Database className="h-5 w-5 text-cyan-200" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-zinc-100">Overview</div>
-                  <div className="mt-1 text-xs text-zinc-400">
-                    Clean, missing, and incorrect percentages.
-                  </div>
+                  <div className="text-sm font-semibold text-zinc-100">Summary</div>
                 </div>
               </div>
 
@@ -243,7 +237,7 @@ export default function QualityPanel({
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-zinc-400">
-                      Schema drift
+                      Unexpected file structure
                     </div>
                     <div className="text-xs font-semibold text-zinc-100">
                       {summary?.kpis.files_with_schema_drift ?? 0}
@@ -251,7 +245,7 @@ export default function QualityPanel({
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-zinc-400">
-                      Value anomalies
+                      Unusual values
                     </div>
                     <div className="text-xs font-semibold text-zinc-100">
                       {summary?.kpis.files_with_value_anomalies ?? 0}
@@ -295,17 +289,6 @@ export default function QualityPanel({
               </div>
 
               <div className="mt-4">
-                <div className="mb-3 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-                  <div className="text-sm font-semibold text-zinc-100">
-                    Quality interpretation
-                  </div>
-                  <div className="mt-2 text-xs text-zinc-400">
-                    High clean % with low incorrect % is strongest signal. Missing values
-                    usually indicate ingestion/schema gaps, while incorrect values indicate
-                    mapping or validation issues requiring faster triage.
-                  </div>
-                </div>
-
                 <div className="mb-3 flex flex-wrap gap-2">
                   {[
                     { id: "all", label: `All (${bySource?.items?.length ?? 0})` },

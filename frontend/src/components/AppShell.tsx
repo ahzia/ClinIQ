@@ -11,8 +11,10 @@ import {
   FileText,
   LayoutDashboard,
   Info,
+  Settings2,
   ShieldCheck,
   Sparkles,
+  Activity,
 } from "lucide-react";
 
 import AnimatedBackground from "./AnimatedBackground";
@@ -22,6 +24,19 @@ import SourcesPanel from "./panels/SourcesPanel";
 import MappingPanel from "./panels/MappingPanel";
 import QualityPanel from "./panels/QualityPanel";
 import CorrectionsPanel from "./panels/CorrectionsPanel";
+import SystemDiagnosticsPanel from "./panels/SystemDiagnosticsPanel";
+import {
+  DEMO_LANE_LABELS,
+  countFilesByDemoLane,
+  type DemoLaneKey,
+} from "@/lib/demoLanes";
+
+const OVERVIEW_LANE_ORDER: DemoLaneKey[] = [
+  "baseline",
+  "error_detection",
+  "mapping_robustness",
+  "validation_package",
+];
 
 type HealthResponse = {
   status: string;
@@ -45,8 +60,10 @@ type FilesSummary = {
   needs_review: number;
 };
 
+type OverviewFileRow = { name: string };
+
 type FilesResponse = {
-  files: unknown[];
+  files: OverviewFileRow[];
   summary: FilesSummary;
 };
 
@@ -127,21 +144,29 @@ function Pill({
   return <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs ${cls}`}>{children}</span>;
 }
 
+type NavId =
+  | "overview"
+  | "sources"
+  | "mapping"
+  | "quality"
+  | "corrections"
+  | "system";
+
 export default function AppShell() {
   const navItems = useMemo(
-    () => [
-      { id: "overview", label: "Overview", icon: LayoutDashboard },
-      { id: "sources", label: "Sources", icon: FileText },
-      { id: "mapping", label: "Mapping", icon: Sparkles },
-      { id: "quality", label: "Quality", icon: Database },
-      { id: "corrections", label: "Corrections", icon: ShieldCheck },
-    ],
+    () =>
+      [
+        { id: "overview" as const, label: "Overview", icon: LayoutDashboard },
+        { id: "sources" as const, label: "Data Sources", icon: FileText },
+        { id: "mapping" as const, label: "Field Matching", icon: Sparkles },
+        { id: "quality" as const, label: "Quality", icon: Database },
+        { id: "corrections" as const, label: "Review & Fix", icon: ShieldCheck },
+        { id: "system" as const, label: "System", icon: Settings2 },
+      ] as const,
     []
   );
 
-  const [activeNav, setActiveNav] = useState<(typeof navItems)[number]["id"]>(
-    "overview"
-  );
+  const [activeNav, setActiveNav] = useState<NavId>("overview");
 
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(
     null
@@ -165,6 +190,7 @@ export default function AppShell() {
     useState<QualitySummaryResponse | null>(null);
   const [overviewCorrectionsSummary, setOverviewCorrectionsSummary] =
     useState<CorrectionsQueueResponse["summary"] | null>(null);
+  const [overviewFiles, setOverviewFiles] = useState<OverviewFileRow[]>([]);
 
   const [activeOverviewAlertId, setActiveOverviewAlertId] = useState<
     string | null
@@ -274,6 +300,7 @@ export default function AppShell() {
         setOverviewMappingAlerts(alertsRes.alerts);
         setOverviewQualitySummary(qualityRes);
         setOverviewCorrectionsSummary(corrRes.summary);
+        setOverviewFiles(filesRes.files ?? []);
       } catch (e) {
         if (!mounted) return;
         setOverviewError(
@@ -304,6 +331,34 @@ export default function AppShell() {
     const avg = (missing + incorrect) / 2;
     return Math.max(0, Math.min(100, Math.round(avg)));
   }, [overviewQualitySummary]);
+
+  const laneCounts = useMemo(
+    () => countFilesByDemoLane(overviewFiles),
+    [overviewFiles]
+  );
+
+  const highAlertCount = useMemo(
+    () =>
+      overviewMappingAlerts?.filter((a) => a.severity === "high").length ?? 0,
+    [overviewMappingAlerts]
+  );
+
+  const validationNeedsAttention = useMemo(() => {
+    const q = overviewQualitySummary?.summary.overall_quality_score;
+    const qBad =
+      typeof q === "number"
+        ? q <= 10
+          ? q < 6.5
+          : q < 65
+        : false;
+    return highAlertCount > 0 || qBad;
+  }, [highAlertCount, overviewQualitySummary]);
+
+  const itemsNeedingReview = useMemo(() => {
+    const corr = overviewCorrectionsSummary?.pending_review ?? 0;
+    const map = overviewMappingSummary?.needs_review ?? 0;
+    return corr + map;
+  }, [overviewCorrectionsSummary, overviewMappingSummary]);
 
   const confidenceTone: "good" | "warn" | "neutral" =
     trustConfidencePct >= 70 ? "good" : trustConfidencePct >= 55 ? "warn" : "neutral";
@@ -340,17 +395,15 @@ export default function AppShell() {
     };
   }
 
-  const connectionTone: "good" | "warn" | "neutral" =
-    apiError ? "warn" : health?.status === "ok" ? "good" : "neutral";
-
-  const connectionLabel = apiError
-    ? "Disconnected"
-    : health?.status === "ok"
-    ? "Connected"
-    : "Connecting…";
-
   const activeNavLabel =
     navItems.find((n) => n.id === activeNav)?.label ?? "Overview";
+
+  const healthScoreLabel = useMemo(() => {
+    const q = overviewQualitySummary?.summary.overall_quality_score;
+    if (q === undefined || q === null) return "—";
+    if (q <= 10) return `${q.toFixed(1)} / 10`;
+    return `${Math.round(q)}%`;
+  }, [overviewQualitySummary]);
 
   return (
     <div className="relative h-screen overflow-hidden overflow-x-hidden bg-zinc-950 text-white">
@@ -415,14 +468,15 @@ export default function AppShell() {
               <GlassCard className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
-                    <AlertTriangle className="h-4 w-4 text-amber-200" />
+                    <ShieldCheck className="h-4 w-4 text-cyan-200" />
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-zinc-100">
-                      Contract locked for v1
+                      Quick tip
                     </div>
                     <div className="mt-1 text-xs text-zinc-400">
-                      UI stays stable while internals evolve.
+                      Uncertain matches →{" "}
+                      <span className="text-zinc-200">Review &amp; Fix</span>
                     </div>
                   </div>
                 </div>
@@ -431,46 +485,24 @@ export default function AppShell() {
           </div>
         </aside>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-10 md:px-10">
+        <main className="min-h-0 flex-1 scroll-smooth overflow-y-auto overflow-x-hidden px-6 py-8 md:px-10">
           <motion.header
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
           >
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-semibold tracking-tight text-white">
-                    ClinIQ Console
-                  </h1>
-                  <Pill tone={connectionTone}>{connectionLabel}</Pill>
-                  {contractVersion?.contract_version ? (
-                    <Pill tone="neutral">
-                      Contract {contractVersion.contract_version}
-                    </Pill>
-                  ) : null}
-                </div>
-                <p className="mt-3 max-w-2xl text-sm text-zinc-400">
-                  Ingest, map, and improve clinical data with confidence signals
-                  and a human correction loop.
+                <h1 className="text-3xl font-semibold tracking-tight text-white">
+                  ClinIQ Workspace
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
+                  ClinIQ helps you combine healthcare files into one consistent format.
+                  It highlights risky matches, explains why they were flagged, and
+                  guides you to fix them quickly.
                 </p>
                 <div className="mt-3">
-                  <Pill tone="neutral">Current: {activeNavLabel}</Pill>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-                  <div className="text-xs text-zinc-400">Backend</div>
-                  <div className="mt-1 text-sm font-semibold text-zinc-100">
-                    {health ? health.service : "Waiting for API"}
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-                  <div className="text-xs text-zinc-400">API</div>
-                  <div className="mt-1 text-sm font-semibold text-zinc-100">
-                    {health ? `${health.version} / ${health.env}` : "v1 / dev"}
-                  </div>
+                  <Pill tone="neutral">View: {activeNavLabel}</Pill>
                 </div>
               </div>
             </div>
@@ -505,13 +537,13 @@ export default function AppShell() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.25 }}
-              className="mt-8"
+              className="mt-6"
             >
               {activeNav === "overview" ? (
                 <div className="flex flex-col gap-6">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <StatCard
-                      label="Ingestion"
+                      label="Files imported"
                       value={
                         overviewFilesSummary
                           ? `${overviewFilesSummary.imported_files} files`
@@ -519,99 +551,111 @@ export default function AppShell() {
                       }
                       hint={
                         overviewFilesSummary
-                          ? `Needs review: ${overviewFilesSummary.needs_review} · Failed: ${overviewFilesSummary.failed_mappings}`
-                          : "Multi-format upload pipeline"
+                          ? `${overviewFilesSummary.failed_mappings} failed · ${overviewFilesSummary.needs_review} flagged`
+                          : undefined
                       }
                       icon={<Database className="h-4 w-4 text-cyan-200" />}
                     />
                     <StatCard
-                      label="Mapping"
+                      label="Fields matched (auto)"
                       value={
                         overviewMappingSummary
-                          ? `${overviewMappingSummary.auto_mapped} auto · ${overviewMappingSummary.needs_review} review`
+                          ? `${overviewMappingSummary.auto_mapped}`
                           : "Loading..."
                       }
                       hint={
                         overviewMappingSummary
-                          ? `Warnings: ${overviewMappingSummary.mapped_with_warning} · Failed: ${overviewMappingSummary.failed}`
-                          : "Confidence + explainability"
+                          ? `of ${overviewMappingSummary.total_fields_seen} columns · ${overviewMappingSummary.needs_review} need your review`
+                          : "How many columns were matched automatically"
                       }
                       icon={<Sparkles className="h-4 w-4 text-cyan-200" />}
                     />
                     <StatCard
-                      label="Corrections"
+                      label="Needs review"
                       value={
-                        overviewCorrectionsSummary
-                          ? `${overviewCorrectionsSummary.pending_review} pending`
-                          : "Loading..."
+                        overviewLoading
+                          ? "Loading..."
+                          : `${itemsNeedingReview}`
                       }
-                      hint="Approve, reject, edit, reuse (durable in DB later)"
+                      hint={`Queue ${overviewCorrectionsSummary?.pending_review ?? 0} · uncertain ${overviewMappingSummary?.needs_review ?? 0}`}
                       icon={<ShieldCheck className="h-4 w-4 text-cyan-200" />}
+                    />
+                    <StatCard
+                      label="Overall data health"
+                      value={overviewLoading ? "Loading..." : healthScoreLabel}
+                      hint="Combined quality score from your uploads (higher is better)."
+                      icon={<Activity className="h-4 w-4 text-cyan-200" />}
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
+                  {overviewError ? (
+                    <div className="rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-200 ring-1 ring-rose-400/20">
+                      {overviewError}
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <GlassCard className="p-6">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div>
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
                           <div className="text-sm font-semibold text-zinc-100">
-                            API Connection
+                            Validation status
                           </div>
-                          <div className="mt-2 text-sm text-zinc-400">
-                            {apiError
-                              ? `We couldn't reach the backend: ${apiError}`
-                              : "Backend contract is reachable. Next we’ll hook real data into this UI."}
-                          </div>
-                          {overviewError ? (
-                            <div className="mt-3 text-xs font-semibold text-rose-200">
-                              {overviewError}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.98 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.35 }}
-                          className="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10"
-                        >
-                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.45)]" />
-                          <div className="text-sm font-semibold text-zinc-100">
-                            {apiError ? "Offline" : "Online"}
-                          </div>
-                        </motion.div>
-                      </div>
-
-                      <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <div className="rounded-xl bg-white/5 p-4 ring-1 ring-white/10">
-                          <div className="text-xs text-zinc-400">Service</div>
-                          <div className="mt-1 text-sm font-semibold text-zinc-100">
-                            {health?.service ?? "—"}
+                          <div className="mt-2 text-xs text-zinc-500">
+                            High severity:{" "}
+                            <span className="font-semibold text-zinc-300">
+                              {highAlertCount}
+                            </span>
                           </div>
                         </div>
-                        <div className="rounded-xl bg-white/5 p-4 ring-1 ring-white/10">
-                          <div className="text-xs text-zinc-400">Version</div>
-                          <div className="mt-1 text-sm font-semibold text-zinc-100">
-                            {health?.version ?? "—"}
-                          </div>
-                        </div>
-                        <div className="rounded-xl bg-white/5 p-4 ring-1 ring-white/10">
-                          <div className="text-xs text-zinc-400">Contract</div>
-                          <div className="mt-1 text-sm font-semibold text-zinc-100">
-                            {contractVersion?.contract_version ?? "—"}
-                          </div>
-                        </div>
+                        <Pill tone={validationNeedsAttention ? "warn" : "good"}>
+                          {validationNeedsAttention
+                            ? "Needs attention"
+                            : "Looking good"}
+                        </Pill>
                       </div>
                     </GlassCard>
 
                     <GlassCard className="p-6">
                       <div className="text-sm font-semibold text-zinc-100">
-                        Trust Signals
+                        Demo file groups
                       </div>
-                      <div className="mt-2 space-y-4">
+                      <div className="mt-3 space-y-2">
+                        {OVERVIEW_LANE_ORDER.map((key) => {
+                          const meta = DEMO_LANE_LABELS[key];
+                          const n = laneCounts[key];
+                          return (
+                            <div
+                              key={key}
+                              className="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/10"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-zinc-100">
+                                  {meta.title}
+                                </div>
+                                <div className="text-xs text-zinc-500">
+                                  {meta.description}
+                                </div>
+                              </div>
+                              <Pill tone={n > 0 ? "good" : "neutral"}>
+                                {n} file{n === 1 ? "" : "s"}
+                              </Pill>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </GlassCard>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
+                    <GlassCard className="p-6">
+                      <div className="text-sm font-semibold text-zinc-100">
+                        Confidence &amp; risk
+                      </div>
+                      <div className="mt-4 space-y-4">
                         <div>
                           <div className="flex items-center justify-between">
-                            <div className="text-xs text-zinc-400">Mapping confidence</div>
+                            <div className="text-xs text-zinc-400">Auto-match confidence</div>
                             <div
                               className={`text-xs font-semibold ${
                                 confidenceTone === "good"
@@ -637,7 +681,7 @@ export default function AppShell() {
                         </div>
                         <div>
                           <div className="flex items-center justify-between">
-                            <div className="text-xs text-zinc-400">Anomaly likelihood</div>
+                            <div className="text-xs text-zinc-400">Potential data issues</div>
                             <div
                               className={`text-xs font-semibold ${
                                 trustAnomalyPct <= 20
@@ -667,7 +711,7 @@ export default function AppShell() {
 
                     <GlassCard className="p-6">
                       <div className="text-sm font-semibold text-zinc-100">
-                        Recent Alerts
+                        Important issues
                       </div>
                       <div className="mt-3 grid w-full grid-cols-1 gap-4 lg:grid-cols-2">
                         <div className="space-y-3">
@@ -738,7 +782,7 @@ export default function AppShell() {
                             })
                           ) : (
                             <div className="rounded-2xl bg-white/5 p-4 text-sm text-zinc-400 ring-1 ring-white/10">
-                              No mapping alerts right now.
+                              No important issues right now.
                             </div>
                           )}
                         </div>
@@ -830,6 +874,25 @@ export default function AppShell() {
                           )}
                         </div>
                       </div>
+
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setActiveNav("corrections")}
+                          className="rounded-2xl bg-gradient-to-r from-cyan-500/80 via-sky-500/80 to-indigo-500/80 px-5 py-3 text-sm font-semibold text-black ring-1 ring-white/10"
+                        >
+                          Open Review &amp; Fix
+                        </motion.button>
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setActiveNav("mapping")}
+                          className="rounded-2xl bg-white/10 px-5 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-white/20 hover:bg-white/15"
+                        >
+                          Open Field Matching
+                        </motion.button>
+                      </div>
                     </GlassCard>
                   </div>
                 </div>
@@ -857,17 +920,16 @@ export default function AppShell() {
                 <div className="mt-2">
                   <CorrectionsPanel />
                 </div>
-              ) : (
-                <div className="rounded-3xl bg-white/5 p-8 ring-1 ring-white/10">
-                  <div className="text-sm font-semibold text-zinc-100">
-                    Section coming next
-                  </div>
-                  <div className="mt-2 text-sm text-zinc-400">
-                    We’ll implement Sources/Mapping/Quality/Corrections step-by-step,
-                    wiring each area to the matching `/api/v1` endpoints.
-                  </div>
+              ) : activeNav === "system" ? (
+                <div className="mt-2">
+                  <SystemDiagnosticsPanel
+                    health={health}
+                    contractVersion={contractVersion}
+                    apiError={apiError}
+                    overviewError={overviewError}
+                  />
                 </div>
-              )}
+              ) : null}
             </motion.section>
           </AnimatePresence>
         </main>

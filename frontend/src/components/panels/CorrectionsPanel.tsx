@@ -227,11 +227,7 @@ export default function CorrectionsPanel() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-zinc-100">
-            Manual Corrections
-          </div>
-          <div className="mt-2 text-sm text-zinc-400">
-            Review the queue, approve/reject/edit suggestions, and optionally
-            apply corrections as reusable rules.
+            Review &amp; fix
           </div>
         </div>
         <StatusPill tone="warn" text={`${pending} pending review`} />
@@ -265,7 +261,7 @@ export default function CorrectionsPanel() {
             <div className="lg:col-span-7">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-zinc-100">
-                  Corrections queue
+                  Items waiting for review
                 </div>
                 <button
                   type="button"
@@ -274,16 +270,6 @@ export default function CorrectionsPanel() {
                 >
                   Reset filter
                 </button>
-              </div>
-              <div className="mt-3 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-                <div className="text-sm font-semibold text-zinc-100">
-                  Review strategy
-                </div>
-                <div className="mt-2 text-xs text-zinc-400">
-                  Start with <span className="font-semibold text-zinc-200">low confidence</span> and
-                  unresolved mappings, apply rules only for repeated patterns, and leave
-                  source-specific exceptions as manual decisions.
-                </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[
@@ -458,19 +444,9 @@ export default function CorrectionsPanel() {
                 </div>
               </div>
 
-              <div className="mt-6 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-200" />
-                  <div>
-                    <div className="text-sm font-semibold text-zinc-100">
-                      Feedback loop
-                    </div>
-                    <div className="mt-1 text-xs text-zinc-400">
-                      Approvals can be applied as reusable rules to improve
-                      future mappings.
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-6 rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-400 ring-1 ring-white/10">
+                <AlertTriangle className="mr-2 inline h-3.5 w-3.5 text-amber-200" />
+                Approvals can be saved as reusable rules.
               </div>
             </div>
           </div>
@@ -501,7 +477,7 @@ export default function CorrectionsPanel() {
                       ? "Approve suggestion"
                       : dialog.mode === "reject"
                       ? "Reject suggestion"
-                      : "Edit target override"}
+                      : "Choose a better field match"}
                   </div>
                   <div className="mt-2 text-xs text-zinc-400">
                     id: {dialog.item.id} · confidence:{" "}
@@ -520,12 +496,12 @@ export default function CorrectionsPanel() {
               <div className="mt-4 space-y-4">
                 {dialog.mode === "edit" ? (
                   <div>
-                    <div className="text-xs text-zinc-400">Target override</div>
+                    <div className="text-xs text-zinc-400">Preferred target field</div>
                     <input
                       value={targetOverride}
                       onChange={(e) => setTargetOverride(e.target.value)}
                       className="mt-2 w-full rounded-2xl bg-white/5 px-4 py-3 text-sm ring-1 ring-white/10 outline-none"
-                      placeholder="Enter canonical target field"
+                      placeholder="Enter standard field name"
                     />
                   </div>
                 ) : null}
@@ -546,7 +522,7 @@ export default function CorrectionsPanel() {
                 {dialog.mode === "approve" ? (
                   <label className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
                     <span className="text-sm font-semibold text-zinc-100">
-                      Apply as rule
+                      Use this fix for similar files
                     </span>
                     <input
                       type="checkbox"
