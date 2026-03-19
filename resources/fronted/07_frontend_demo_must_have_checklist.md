@@ -48,6 +48,7 @@ If these are not visible, judges may think this is only manual ETL.
 - No deep clicks (>2 clicks) to show key intelligence evidence.
 - Keep one "Demo Mode" filter preset loaded on app start.
 - Keep one fallback static summary card ready per page.
+- Keep AI wording vendor-neutral in visible UI copy.
 
 ## E) Ready-to-Demo Data Presets
 

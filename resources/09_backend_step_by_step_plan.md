@@ -28,6 +28,7 @@ Status labels:
 - [x] Step 14-17 - intelligence layer (`REAL+MEM`: step 14-16 runtime logic, step 17 memory persisted in-memory)
 - [x] Step 18-20 - quality engine (`REAL`: sample-based runtime checks + computed metrics/alerts)
 - [~] Step 21-22 - persistent storage + export (Step 21 done for SQL persistence validation path; Step 22 pending)
+- [x] AI-assisted mapping baseline (`REAL`: OpenAI-compatible provider abstraction + dual-score endpoint; requires API key for live model calls)
 - [x] Step 23 - frontend-required API surface implemented (`MIXED`: `REAL` + `REAL+MEM` + `FIXTURE`)
 - [x] Step 24 - rerun mapping endpoint implemented (`REAL+MEM`, currently queue-stub behavior)
 - [ ] Step 25-27 - tests, demo hardening, Docker
@@ -179,6 +180,7 @@ Why this is required:
   - `GET /api/v1/mapping/mapped-preview/{file_id}`
   - `GET /api/v1/mapping/hypotheses/{file_id}`
   - `GET /api/v1/mapping/confidence/{file_id}`
+  - `GET /api/v1/mapping/ai-assist/{file_id}`
   - `POST /api/v1/mapping/route/{file_id}`
   - `GET /api/v1/mapping/alerts` (quality-derived runtime alerts)
   - `GET /api/v1/quality/summary`
@@ -257,6 +259,32 @@ Test evidence:
   - sqlite file exists at `data/processed/harmonized.sqlite`
   - table row count check: `tbImportDeviceMotionData_rows=20`
 - `POST /storage/sql-load/f_epaac_1` in validation mode also completed without endpoint errors.
+
+## AI-Assisted Mapping Baseline Notes (Done)
+
+- Added provider abstraction:
+  - `app/ai/provider.py`
+- Current provider mode:
+  - OpenAI-compatible `chat/completions` API via env-configured base URL/model.
+- Added dual-score combiner module:
+  - `app/mapping/ai_assist.py`
+- Added endpoint:
+  - `GET /api/v1/mapping/ai-assist/{file_id}`
+- Output includes per-source-field:
+  - deterministic target/score
+  - AI target/score
+  - conflict flag
+  - final target/final score
+  - final route (`auto`/`warning`/`manual_review`)
+- Added runtime AI configs:
+  - `AI_ENABLED`, `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`, `AI_API_BASE_URL`, `AI_TIMEOUT_SECONDS`
+  - exposed via `GET /api/v1/meta/runtime-config`
+
+Test evidence:
+- `GET /mapping/ai-assist/f_clinic2_device` returns stable dual-score payload shape.
+- Without API key, endpoint degrades safely:
+  - `ai_available=false`
+  - deterministic baseline still returned with clear notes.
 
 ## Step 12 Completion Notes (Done)
 

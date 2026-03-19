@@ -127,4 +127,7 @@ Say:
   - automation,
   - explainability,
   - safety/governance.
+- Keep model/provider wording neutral in presentation:
+  - say "AI-assisted mapping engine" and "on-prem/local-model deployable"
+  - avoid naming specific cloud vendors in the live demo UI narrative.
 

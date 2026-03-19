@@ -8,12 +8,14 @@ from app.core.settings import settings
 from app.core.stub_store import stub_store
 from app.ingest.preview_parser import parse_file_preview
 from app.mapping.canonical_model import get_canonical_model
+from app.mapping.ai_assist import run_ai_assisted_mapping
 from app.mapping.confidence import score_mapping_confidence
 from app.mapping.config_mapping import apply_mapping_rules, list_mapping_rule_files, load_mapping_rules
 from app.mapping.hypothesis import generate_column_hypotheses
 from app.mapping.normalization import normalize_rows
 from app.quality.engine import evaluate_file_quality
 from app.schemas.contracts import (
+    AiAssistResponse,
     MappingConfidenceResponse,
     MappingRouteRequest,
     MappingRouteResponse,
@@ -359,6 +361,48 @@ def mapping_confidence(file_id: str) -> MappingConfidenceResponse:
     }
 
 
+@router.get("/mapping/ai-assist/{file_id}", response_model=AiAssistResponse)
+def mapping_ai_assist(file_id: str) -> AiAssistResponse:
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    details = stub_store.get_file_details(file_id)
+    source_id = details["file"]["source_id"]
+    kind, columns, rows, notes = parse_file_preview(path)
+    if kind != "table":
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "ai_provider": "openai-compatible",
+            "ai_model": settings.ai_model,
+            "ai_available": False,
+            "columns_analyzed": 0,
+            "results": [],
+            "route_summary": {"auto": 0, "warning": 0, "manual_review": 0},
+            "notes": notes + ["AI-assisted mapping currently supports table-like files only."],
+        }
+
+    payload = run_ai_assisted_mapping(
+        source_id=source_id,
+        columns=columns,
+        rows=rows,
+        accepted_targets=stub_store.accepted_target_counts(),
+        correction_memory=stub_store.correction_memory_for_source(source_id),
+    )
+    return {
+        "file_id": file_id,
+        "source_id": source_id,
+        "ai_provider": payload["ai_provider"],
+        "ai_model": payload["ai_model"],
+        "ai_available": payload["ai_available"],
+        "columns_analyzed": payload["columns_analyzed"],
+        "results": payload["results"],
+        "route_summary": payload["route_summary"],
+        "notes": notes + payload["notes"],
+    }
+
+
 @router.post("/mapping/route/{file_id}", response_model=MappingRouteResponse)
 def mapping_route(file_id: str, payload: MappingRouteRequest) -> MappingRouteResponse:
     path = stub_store.get_file_path(file_id)
@@ -553,6 +597,9 @@ def get_runtime_config() -> RuntimeConfigResponse:
         "case_link_window_hours": settings.case_link_window_hours,
         "identity_conflict_high_threshold": settings.identity_conflict_high_threshold,
         "processed_db_path": settings.processed_db_path,
+        "ai_enabled": settings.ai_enabled,
+        "ai_provider": settings.ai_provider,
+        "ai_model": settings.ai_model,
     }
 
 
@@ -560,7 +607,7 @@ def get_runtime_config() -> RuntimeConfigResponse:
 def contract_version() -> ContractVersionResponse:
     return {
         "api_version": "v1",
-        "contract_version": "2026-03-19.4",
+        "contract_version": "2026-03-19.5",
         "stability": "locked",
         "breaking_change_policy": "No breaking changes in /api/v1; use /api/v2 for contract-breaking updates.",
     }

@@ -44,6 +44,12 @@ Current variables:
 - `CASE_LINK_WINDOW_HOURS` (default: `6`)
 - `IDENTITY_CONFLICT_HIGH_THRESHOLD` (default: `2`)
 - `PROCESSED_DB_PATH` (default: `data/processed/harmonized.sqlite`)
+- `AI_ENABLED` (default: `true`)
+- `AI_PROVIDER` (default: `openai` -> use as openai-compatible provider setting)
+- `AI_MODEL` (default: `gpt-4o-mini`)
+- `AI_API_KEY` (required for live AI suggestions)
+- `AI_API_BASE_URL` (default: `https://api.openai.com/v1`, replace with local gateway for on-prem)
+- `AI_TIMEOUT_SECONDS` (default: `25`)
 
 ## 4) Run the Backend
 
@@ -126,6 +132,19 @@ curl -X POST "http://localhost:8000/api/v1/mapping/route/f_clinic2_device" \
   -d '{"include_warnings_in_queue": true}'
 ```
 
+AI-assisted dual-scoring mapping preview:
+
+```bash
+curl "http://localhost:8000/api/v1/mapping/ai-assist/f_clinic2_device"
+```
+
+Demo communication note:
+- keep UI/pitch wording provider-neutral:
+  - "AI-assisted mapping engine"
+  - "LLM provider abstraction"
+  - "on-prem/local-model deployable (e.g., Llama-family via compatible gateway)"
+- avoid naming cloud vendors in UI labels.
+
 Upload a file:
 
 ```bash
@@ -149,6 +168,7 @@ curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
 - `GET /api/v1/mapping/mapped-preview/{file_id}`
 - `GET /api/v1/mapping/hypotheses/{file_id}`
 - `GET /api/v1/mapping/confidence/{file_id}`
+- `GET /api/v1/mapping/ai-assist/{file_id}`
 - `POST /api/v1/mapping/route/{file_id}`
 - `GET /api/v1/mapping/alerts`
 - `POST /api/v1/mapping/rerun`

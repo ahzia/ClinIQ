@@ -374,6 +374,12 @@ Response item fields:
 - Backend internals will evolve from fixture -> real pipeline while keeping endpoint shape stable.
 - If contract changes become necessary, version under `/api/v2` rather than breaking `/api/v1`.
 
+## Demo wording rule (important)
+
+- Keep UI labels and pitch language provider-neutral:
+  - use: `AI-assisted mapping`, `LLM-assisted`, `local-model compatible`
+  - avoid explicit vendor names in UI text.
+
 ## 9) Immediate Frontend TODO Checklist
 
 - [ ] Setup API client with base URL env var

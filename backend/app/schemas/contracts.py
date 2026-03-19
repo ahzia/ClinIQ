@@ -248,6 +248,9 @@ class RuntimeConfigResponse(BaseModel):
     case_link_window_hours: int
     identity_conflict_high_threshold: int
     processed_db_path: str
+    ai_enabled: bool
+    ai_provider: str
+    ai_model: str
 
 
 class CanonicalEntity(BaseModel):
@@ -373,6 +376,33 @@ class MappingRouteResponse(BaseModel):
     warning_count: int
     manual_review_count: int
     queued_items_added: int
+    notes: list[str]
+
+
+class AiAssistItem(BaseModel):
+    source_field: str
+    deterministic_target: str | None = None
+    deterministic_score: float
+    ai_target: str | None = None
+    ai_score: float | None = None
+    conflict: bool
+    final_target: str | None = None
+    final_score: float
+    route: Literal["auto", "warning", "manual_review"]
+    deterministic_reason: str
+    ai_reason: str
+    final_reason: str
+
+
+class AiAssistResponse(BaseModel):
+    file_id: str
+    source_id: str
+    ai_provider: str
+    ai_model: str
+    ai_available: bool
+    columns_analyzed: int
+    results: list[AiAssistItem]
+    route_summary: RouteSummary
     notes: list[str]
 
 
