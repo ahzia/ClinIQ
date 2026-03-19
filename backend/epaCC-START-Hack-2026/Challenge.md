@@ -104,4 +104,3 @@ The DACH healthcare market generates roughly **€100 billion** in annual costs 
 ## 10. Prize
 
 - **PlayStation 5 Pro**
-- **Alternative:** Trip to Berlin DMEA (travel expenses to be confirmed)

@@ -41,6 +41,22 @@ From now on, every completed step must include:
 
 No step should be marked complete without these three items.
 
+## Organizer Clarification Alignment (Must Follow)
+
+- Validation reference dataset:
+  - use `Checkdata-final.zip` (latest official validation package).
+- Target standard:
+  - conform output shape with `DB/CreateImportTables.sql`.
+- Scope:
+  - no patient condition analysis needed.
+- Data intent:
+  - `mit_Fehlern` -> error detection/cleaning tests
+  - `split_data...` -> mapping robustness tests
+  - `ohne_Fehler` -> baseline correctness tests
+- Identity mapping:
+  - use `patient_id` + datetime heuristics when `case_id` missing
+  - unresolved/contradictory identity must raise alerts and go to manual queue
+
 ## Step 9 Completion Notes (Done)
 
 - `GET /api/v1/files/{file_id}/preview` now parses real files instead of fixture-only response.
