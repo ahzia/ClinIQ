@@ -7,25 +7,39 @@ Constraint acknowledged:
 
 ## Execution Status
 
-- [x] Step 1 - backend workspace created
-- [x] Step 2 - challenge dataset/docs moved into backend workspace
-- [x] Step 3 - folder structure created
-- [x] Step 4 - dependencies initialized
-- [x] Step 5 - FastAPI app + health endpoint created
-- [x] Step 6 - settings loader (`.env`) added
-- [x] Step 7 - structured logging and request IDs
-- [x] Step 8 - upload endpoint implemented (with in-memory metadata registration)
-- [x] Step 9 - parser adapters implemented (CSV/XLSX/PDF/TXT preview parsing)
-- [x] Step 10 - source categorization added for uploaded files
-- [x] Step 11 - canonical model entities
+Status labels:
+- `REAL` = production-style implementation (non-mock behavior)
+- `REAL+MEM` = real logic but state is in-memory (not DB persisted)
+- `FIXTURE` = response still fixture-backed/mock data
+
+- [x] Step 1 - backend workspace created (`REAL`)
+- [x] Step 2 - challenge dataset/docs moved into backend workspace (`REAL`)
+- [x] Step 3 - folder structure created (`REAL`)
+- [x] Step 4 - dependencies initialized (`REAL`)
+- [x] Step 5 - FastAPI app + health endpoint created (`REAL`)
+- [x] Step 6 - settings loader (`.env`) added (`REAL`)
+- [x] Step 7 - structured logging and request IDs (`REAL`)
+- [x] Step 8 - upload endpoint implemented (`REAL+MEM`: upload saved to disk, metadata in memory)
+- [x] Step 9 - parser adapters implemented (`REAL`)
+- [x] Step 10 - source categorization added for uploaded files (`REAL+MEM`)
+- [x] Step 11 - canonical model entities (`REAL`)
 - [ ] Step 12 - deterministic normalization
 - [ ] Step 13 - mapping configs
 - [ ] Step 14-17 - intelligence layer
 - [ ] Step 18-20 - quality engine
 - [ ] Step 21-22 - persistent storage + export
-- [x] Step 23 - frontend-required API surface implemented
-- [x] Step 24 - rerun mapping endpoint implemented
+- [x] Step 23 - frontend-required API surface implemented (`MIXED`: `REAL` + `REAL+MEM` + `FIXTURE`)
+- [x] Step 24 - rerun mapping endpoint implemented (`REAL+MEM`, currently queue-stub behavior)
 - [ ] Step 25-27 - tests, demo hardening, Docker
+
+## Status Discipline Rule (Important)
+
+From now on, every completed step must include:
+1. a status label (`REAL`, `REAL+MEM`, or `FIXTURE`),
+2. test evidence (endpoint/command and observed result),
+3. explicit note of what is still mocked/fixture-backed.
+
+No step should be marked complete without these three items.
 
 ## Step 9 Completion Notes (Done)
 
@@ -62,6 +76,31 @@ Constraint acknowledged:
   - correction UI dropdowns
   - mapping review screens
   - future "target schema explorer" panel
+
+## Current API Maturity Snapshot
+
+- `REAL`:
+  - `GET /api/v1/health`
+  - `POST /api/v1/ingest/upload` (disk write path)
+  - `GET /api/v1/files/{file_id}/preview`
+  - `GET /api/v1/mapping/canonical-model`
+  - request logging + `X-Request-ID` middleware
+
+- `REAL+MEM`:
+  - `GET /api/v1/files` (fixture list + in-memory uploads)
+  - `GET /api/v1/files/{file_id}` (fixture template + in-memory uploads)
+  - `GET /api/v1/corrections/queue`
+  - `POST /api/v1/corrections/{id}/approve`
+  - `POST /api/v1/corrections/{id}/reject`
+  - `PATCH /api/v1/corrections/{id}`
+  - `POST /api/v1/mapping/rerun`
+
+- `FIXTURE`:
+  - `GET /api/v1/sources`
+  - `GET /api/v1/mapping/summary`
+  - `GET /api/v1/mapping/alerts`
+  - `GET /api/v1/quality/summary`
+  - `GET /api/v1/quality/by-source`
 
 ## Phase 0 - Workspace Setup
 
