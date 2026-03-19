@@ -321,6 +321,19 @@ export default function SourcesPanel({
             Select a source and file to inspect inferred schema, mapping trust,
             and previewed canonical fields.
           </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <TonePill
+              tone="neutral"
+              text={`Sources: ${sources?.sources?.length ?? 0}`}
+            />
+            <TonePill
+              tone="neutral"
+              text={`Files: ${files?.files?.length ?? 0}`}
+            />
+            {selectedFileId ? (
+              <TonePill tone="good" text={`Selected file: ${selectedFileId}`} />
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -340,7 +353,7 @@ export default function SourcesPanel({
       </div>
 
       <GlassCard className="p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+        <div className="min-w-0 flex flex-col gap-4 lg:flex-row lg:items-stretch">
           {/* Left: sources/files */}
           <div className="lg:w-[380px]">
             <div className="flex items-center justify-between gap-3">
@@ -536,7 +549,7 @@ export default function SourcesPanel({
           </div>
 
           {/* Right: preview + schema */}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-cyan-200" />
@@ -716,13 +729,13 @@ export default function SourcesPanel({
                       </div>
                     </GlassCard>
 
-                      <div className="rounded-2xl ring-1 ring-white/10">
+                    <div className="min-w-0 rounded-2xl ring-1 ring-white/10">
                       <div
-                        className={`max-h-[420px] w-full overflow-x-auto overflow-y-auto ${
+                        className={`max-h-[420px] w-full max-w-full overflow-x-auto overflow-y-auto ${
                           showAllRows ? "" : "overflow-y-hidden"
                         }`}
                       >
-                        <table className="min-w-max w-max border-separate border-spacing-0">
+                        <table className="min-w-max border-separate border-spacing-0">
                           <thead className="bg-white/5">
                             <tr>
                               {preview.columns.map((c) => (

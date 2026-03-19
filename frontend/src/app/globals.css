@@ -30,27 +30,66 @@ body {
   height: 100%;
 }
 
-/* Premium-ish scrollbar styling (works in Chromium/Edge + Firefox). */
+/* Global premium scrollbar theme (all panels, tables, modals, sidebar). */
+:root {
+  --scrollbar-size: 11px;
+  --scrollbar-track: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.35) 0%,
+    rgba(2, 6, 23, 0.4) 100%
+  );
+  --scrollbar-thumb: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.62) 0%,
+    rgba(99, 102, 241, 0.62) 100%
+  );
+  --scrollbar-thumb-hover: linear-gradient(
+    180deg,
+    rgba(103, 232, 249, 0.88) 0%,
+    rgba(129, 140, 248, 0.88) 100%
+  );
+  --scrollbar-thumb-active: linear-gradient(
+    180deg,
+    rgba(6, 182, 212, 0.95) 0%,
+    rgba(79, 70, 229, 0.95) 100%
+  );
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(56, 189, 248, 0.45) rgba(255, 255, 255, 0.05);
+  scrollbar-color: rgba(56, 189, 248, 0.78) rgba(15, 23, 42, 0.35);
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--scrollbar-track);
   border-radius: 999px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.45);
-  border: 2px solid rgba(0, 0, 0, 0);
+  background: var(--scrollbar-thumb);
+  border: 2px solid rgba(2, 6, 23, 0.35);
   background-clip: padding-box;
   border-radius: 999px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @keyframes clinIQ-float {
@@ -68,4 +107,47 @@ body {
 .dark .glass {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Premium select styling for all dropdown controls. */
+.select-premium {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238dd7ff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 0.95rem;
+  padding-right: 2.5rem;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.select-premium:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(141, 215, 255, 0.4);
+}
+
+.select-premium:focus-visible {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.85);
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.2),
+    0 8px 24px rgba(14, 116, 144, 0.18);
+}
+
+.select-premium:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.select-premium option {
+  background-color: #0b1220;
+  color: #e5e7eb;
 }

@@ -112,6 +112,9 @@ export default function CorrectionsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueExpanded, setQueueExpanded] = useState(false);
+  const [queueFilter, setQueueFilter] = useState<
+    "all" | "pending_review" | "low_confidence" | "accepted" | "rejected"
+  >("all");
 
   const [dialog, setDialog] = useState<DialogState>(null);
   const [comment, setComment] = useState("");
@@ -140,8 +143,22 @@ export default function CorrectionsPanel() {
   const pending = queue?.summary.pending_review ?? 0;
 
   const allQueue = queue?.queue ?? [];
-  const visibleQueue = queueExpanded ? allQueue : allQueue.slice(0, 5);
-  const showQueueToggle = allQueue.length > 5;
+  const prioritizedQueue = [...allQueue].sort((a, b) => {
+    const statusRank = (s: CorrectionItem["status"]) =>
+      s === "pending_review" ? 0 : s === "edited" ? 1 : s === "rejected" ? 2 : 3;
+    const byStatus = statusRank(a.status) - statusRank(b.status);
+    if (byStatus !== 0) return byStatus;
+    return a.confidence - b.confidence;
+  });
+  const filteredQueue = prioritizedQueue.filter((item) => {
+    if (queueFilter === "pending_review") return item.status === "pending_review";
+    if (queueFilter === "accepted") return item.status === "accepted";
+    if (queueFilter === "rejected") return item.status === "rejected";
+    if (queueFilter === "low_confidence") return item.confidence < 0.6;
+    return true;
+  });
+  const visibleQueue = queueExpanded ? filteredQueue : filteredQueue.slice(0, 5);
+  const showQueueToggle = filteredQueue.length > 5;
 
   function openApprove(item: CorrectionItem) {
     setComment("");
@@ -237,22 +254,88 @@ export default function CorrectionsPanel() {
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
             <div className="lg:col-span-7">
-              <div className="text-sm font-semibold text-zinc-100">
-                Corrections queue
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-zinc-100">
+                  Corrections queue
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQueueFilter("all")}
+                  className="rounded-2xl bg-white/5 px-3 py-2 text-xs font-semibold text-cyan-200 ring-1 ring-white/10 hover:bg-white/10"
+                >
+                  Reset filter
+                </button>
+              </div>
+              <div className="mt-3 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                <div className="text-sm font-semibold text-zinc-100">
+                  Review strategy
+                </div>
+                <div className="mt-2 text-xs text-zinc-400">
+                  Start with <span className="font-semibold text-zinc-200">low confidence</span> and
+                  unresolved mappings, apply rules only for repeated patterns, and leave
+                  source-specific exceptions as manual decisions.
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  { id: "all", label: `All (${allQueue.length})` },
+                  {
+                    id: "pending_review",
+                    label: `Pending (${allQueue.filter((i) => i.status === "pending_review").length})`,
+                  },
+                  {
+                    id: "low_confidence",
+                    label: `Low confidence (${allQueue.filter((i) => i.confidence < 0.6).length})`,
+                  },
+                  {
+                    id: "accepted",
+                    label: `Accepted (${allQueue.filter((i) => i.status === "accepted").length})`,
+                  },
+                  {
+                    id: "rejected",
+                    label: `Rejected (${allQueue.filter((i) => i.status === "rejected").length})`,
+                  },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() =>
+                      setQueueFilter(
+                        f.id as
+                          | "all"
+                          | "pending_review"
+                          | "low_confidence"
+                          | "accepted"
+                          | "rejected"
+                      )
+                    }
+                    className={`rounded-2xl px-3 py-2 text-xs font-semibold ring-1 transition ${
+                      queueFilter === f.id
+                        ? "bg-white/10 text-zinc-100 ring-white/20"
+                        : "bg-white/5 text-zinc-300 ring-white/10 hover:bg-white/10"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
               <div
                 className={`mt-3 space-y-3 ${
                   queueExpanded ? "max-h-[520px] overflow-y-auto pr-1" : ""
                 }`}
               >
-                {allQueue.length ? (
+                {filteredQueue.length ? (
                   visibleQueue.map((item, idx) => (
                     <motion.div
                       key={item.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.25, delay: idx * 0.03 }}
-                      className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10"
+                      className={`rounded-2xl bg-white/5 p-4 ring-1 ${
+                        item.confidence < 0.6
+                          ? "ring-amber-400/35"
+                          : "ring-white/10"
+                      }`}
                     >
                       <div className="flex flex-col gap-3">
                         <div className="flex items-start justify-between gap-3">
@@ -322,7 +405,7 @@ export default function CorrectionsPanel() {
                   ))
                 ) : (
                   <div className="rounded-2xl bg-white/5 p-4 text-sm text-zinc-400 ring-1 ring-white/10">
-                    Queue is empty.
+                    No corrections for this filter.
                   </div>
                 )}
               </div>
@@ -335,7 +418,7 @@ export default function CorrectionsPanel() {
                     whileTap={{ scale: 0.98 }}
                     className="w-full rounded-2xl bg-white/5 px-4 py-2 text-xs font-semibold text-cyan-200 ring-1 ring-white/10 hover:bg-white/10"
                   >
-                    {queueExpanded ? "Show less" : `Show all (${allQueue.length})`}
+                    {queueExpanded ? "Show less" : `Show all (${filteredQueue.length})`}
                   </motion.button>
                 </div>
               ) : null}

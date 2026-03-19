@@ -82,6 +82,9 @@ export default function QualityPanel({
   const [error, setError] = useState<string | null>(null);
 
   const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+  const [qualityFilter, setQualityFilter] = useState<
+    "all" | "healthy" | "needs_attention" | "critical"
+  >("all");
 
   useEffect(() => {
     let mounted = true;
@@ -127,6 +130,34 @@ export default function QualityPanel({
     if (!bySource?.items?.length || !pickedSourceId) return null;
     return bySource.items.find((i) => i.source_id === pickedSourceId) ?? null;
   }, [bySource, pickedSourceId]);
+
+  const filteredItems = useMemo(() => {
+    const list = bySource?.items ?? [];
+    if (qualityFilter === "healthy") {
+      return list.filter((i) => i.clean_percent >= 75 && i.incorrect_percent <= 10);
+    }
+    if (qualityFilter === "needs_attention") {
+      return list.filter(
+        (i) =>
+          (i.clean_percent >= 60 && i.clean_percent < 75) ||
+          (i.missing_percent > 15 && i.missing_percent <= 25)
+      );
+    }
+    if (qualityFilter === "critical") {
+      return list.filter((i) => i.clean_percent < 60 || i.incorrect_percent > 20);
+    }
+    return list;
+  }, [bySource, qualityFilter]);
+
+  useEffect(() => {
+    if (!filteredItems.length) return;
+    const exists = pickedSourceId
+      ? filteredItems.some((i) => i.source_id === pickedSourceId)
+      : false;
+    if (!exists) {
+      setPickedSourceId(filteredItems[0].source_id);
+    }
+  }, [filteredItems, pickedSourceId]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -247,19 +278,71 @@ export default function QualityPanel({
             </div>
 
             <div className="lg:col-span-7">
-              <div className="text-sm font-semibold text-zinc-100">By source</div>
-              <div className="mt-2 text-xs text-zinc-400">
-                Clean/Missing/Incorrect distribution. Pick a source to focus.
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-zinc-100">By source</div>
+                  <div className="mt-2 text-xs text-zinc-400">
+                    Clean/Missing/Incorrect distribution. Pick a source to focus.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQualityFilter("all")}
+                  className="rounded-2xl bg-white/5 px-3 py-2 text-xs font-semibold text-cyan-200 ring-1 ring-white/10 hover:bg-white/10"
+                >
+                  Reset filter
+                </button>
               </div>
 
               <div className="mt-4">
+                <div className="mb-3 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    Quality interpretation
+                  </div>
+                  <div className="mt-2 text-xs text-zinc-400">
+                    High clean % with low incorrect % is strongest signal. Missing values
+                    usually indicate ingestion/schema gaps, while incorrect values indicate
+                    mapping or validation issues requiring faster triage.
+                  </div>
+                </div>
+
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {[
+                    { id: "all", label: `All (${bySource?.items?.length ?? 0})` },
+                    {
+                      id: "healthy",
+                      label: `Healthy (${(bySource?.items ?? []).filter((i) => i.clean_percent >= 75 && i.incorrect_percent <= 10).length})`,
+                    },
+                    { id: "needs_attention", label: "Needs attention" },
+                    { id: "critical", label: "Critical" },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() =>
+                        setQualityFilter(
+                          f.id as "all" | "healthy" | "needs_attention" | "critical"
+                        )
+                      }
+                      className={`rounded-2xl px-3 py-2 text-xs font-semibold ring-1 transition ${
+                        qualityFilter === f.id
+                          ? "bg-white/10 text-zinc-100 ring-white/20"
+                          : "bg-white/5 text-zinc-300 ring-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
                 <label className="text-xs text-zinc-400">Source</label>
                 <select
                   value={pickedSourceId ?? ""}
                   onChange={(e) => setPickedSourceId(e.target.value)}
-                  className="mt-2 w-full rounded-2xl bg-white/5 px-4 py-3 text-sm ring-1 ring-white/10 outline-none"
+                  disabled={!filteredItems.length}
+                  className="select-premium mt-2 w-full px-4 py-3 text-sm text-zinc-100"
                 >
-                  {bySource?.items?.map((i) => (
+                  {filteredItems.map((i) => (
                     <option key={i.source_id} value={i.source_id}>
                       {i.source_id}
                     </option>

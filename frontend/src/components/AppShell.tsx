@@ -322,6 +322,9 @@ export default function AppShell() {
     ? "Connected"
     : "Connecting…";
 
+  const activeNavLabel =
+    navItems.find((n) => n.id === activeNav)?.label ?? "Overview";
+
   return (
     <div className="relative h-screen overflow-hidden overflow-x-hidden bg-zinc-950 text-white">
       <AnimatedBackground />
@@ -424,6 +427,9 @@ export default function AppShell() {
                   Ingest, map, and improve clinical data with confidence signals
                   and a human correction loop.
                 </p>
+                <div className="mt-3">
+                  <Pill tone="neutral">Current: {activeNavLabel}</Pill>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -442,6 +448,28 @@ export default function AppShell() {
               </div>
             </div>
           </motion.header>
+
+          <div className="mt-5 md:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {navItems.map((item) => {
+                const isActive = activeNav === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveNav(item.id)}
+                    className={`shrink-0 rounded-2xl px-4 py-2 text-xs font-semibold ring-1 transition ${
+                      isActive
+                        ? "bg-white/10 text-zinc-100 ring-white/20"
+                        : "bg-white/5 text-zinc-300 ring-white/10 hover:bg-white/10"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <AnimatePresence mode="wait">
             <motion.section
