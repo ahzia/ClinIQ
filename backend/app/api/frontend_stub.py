@@ -5,7 +5,10 @@ from fastapi import APIRouter, HTTPException
 
 from app.core.fixtures import load_fixture
 from app.core.stub_store import stub_store
+from app.ingest.preview_parser import parse_file_preview
+from app.mapping.canonical_model import get_canonical_model
 from app.schemas.contracts import (
+    CanonicalModelResponse,
     ContractVersionResponse,
     CorrectionActionRequest,
     CorrectionActionResponse,
@@ -35,28 +38,39 @@ def list_sources() -> SourcesResponse:
 # ---- Files / ingestion overview ----
 @router.get("/files", response_model=FilesResponse)
 def list_files() -> FilesResponse:
-    return load_fixture("files.json")
+    return stub_store.list_files()
 
 
 @router.get("/files/{file_id}", response_model=FileDetailsResponse)
 def get_file(file_id: str) -> FileDetailsResponse:
-    data = load_fixture("file_details.json")
-    # simple override for demo; frontend only needs a stable shape
-    data["file"]["id"] = file_id
-    return data
+    return stub_store.get_file_details(file_id)
 
 
 @router.get("/files/{file_id}/preview", response_model=FilePreviewResponse)
 def preview_file(file_id: str) -> FilePreviewResponse:
-    data = load_fixture("file_preview.json")
-    data["file_id"] = file_id
-    return data
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    kind, columns, rows, notes = parse_file_preview(path)
+    return {
+        "file_id": file_id,
+        "kind": kind,
+        "columns": columns,
+        "rows": rows,
+        "notes": notes,
+    }
 
 
 # ---- Mapping status ----
 @router.get("/mapping/summary", response_model=MappingSummaryResponse)
 def mapping_summary() -> MappingSummaryResponse:
     return load_fixture("mapping_summary.json")
+
+
+@router.get("/mapping/canonical-model", response_model=CanonicalModelResponse)
+def mapping_canonical_model() -> CanonicalModelResponse:
+    return get_canonical_model()
 
 
 @router.get("/mapping/alerts", response_model=MappingAlertsResponse)

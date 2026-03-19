@@ -2,7 +2,7 @@
 
 Audience: frontend developer building dashboard and workflows in Next.js.
 
-Status: backend endpoints are currently fixture-backed (stable contract for FE development), then backend logic will replace internals without breaking shapes.
+Status: backend endpoints are contract-locked. Some endpoints are fixture-backed, while file preview and upload listing already run on real parser logic. Response shapes remain stable.
 
 ## 1) Product Goals for Frontend
 
@@ -166,6 +166,10 @@ Response shape:
 ## File Preview
 - `GET /files/{file_id}/preview`
 - Purpose: preview table component.
+- Current behavior:
+  - fixture IDs resolve to real dataset files
+  - uploaded file IDs resolve to real uploaded files in `backend/data/raw`
+  - parser supports CSV/XLSX/PDF/TXT
 
 Response shape:
 ```json
@@ -186,6 +190,14 @@ Response shape:
 ## Mapping Summary
 - `GET /mapping/summary`
 - Purpose: mapping KPI section + per-source bar charts.
+
+## Canonical Target Model
+- `GET /mapping/canonical-model`
+- Purpose: fetch the backend canonical entity/field catalog.
+- Recommended use:
+  - target-field dropdowns in correction UI
+  - schema explorer panel
+  - validation of selected `suggested_target`
 
 ## Mapping Alerts
 - `GET /mapping/alerts`

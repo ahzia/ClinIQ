@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from app.core.stub_store import stub_store
 from app.schemas.contracts import UploadResponse
 
 router = APIRouter(tags=["ingest"])
@@ -25,6 +26,14 @@ async def upload_file(file: UploadFile = File(...)) -> UploadResponse:
 
     content = await file.read()
     target_path.write_bytes(content)
+
+    stub_store.register_upload(
+        file_id=file_id,
+        filename=file.filename or "uploaded_file",
+        stored_path=str(target_path),
+        content_type=file.content_type,
+        size_bytes=len(content),
+    )
 
     return {
         "file_id": file_id,

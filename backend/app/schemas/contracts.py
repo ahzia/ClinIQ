@@ -242,3 +242,14 @@ class ContractVersionResponse(BaseModel):
     contract_version: str
     stability: Literal["locked"]
     breaking_change_policy: str
+
+
+class CanonicalEntity(BaseModel):
+    id: str
+    label: str
+    key_fields: list[str]
+    fields: list[str]
+
+
+class CanonicalModelResponse(BaseModel):
+    entities: list[CanonicalEntity]

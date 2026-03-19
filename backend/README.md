@@ -6,6 +6,7 @@ Current status:
 - FastAPI app scaffold is ready
 - frontend contract endpoints are available under `/api/v1`
 - data is currently served from fixture-backed stubs for rapid frontend development
+- request logging and request IDs are enabled (`X-Request-ID`)
 
 ## 1) Prerequisites
 
@@ -60,6 +61,12 @@ Health check:
 curl "http://localhost:8000/api/v1/health"
 ```
 
+Health check with custom request ID:
+
+```bash
+curl -i -H "X-Request-ID: demo-123" "http://localhost:8000/api/v1/health"
+```
+
 Contract version:
 
 ```bash
@@ -110,6 +117,7 @@ curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
 - `GET /api/v1/files/{file_id}`
 - `GET /api/v1/files/{file_id}/preview`
 - `GET /api/v1/mapping/summary`
+- `GET /api/v1/mapping/canonical-model`
 - `GET /api/v1/mapping/alerts`
 - `POST /api/v1/mapping/rerun`
 - `GET /api/v1/quality/summary`

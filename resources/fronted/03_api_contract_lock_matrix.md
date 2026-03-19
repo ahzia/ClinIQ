@@ -19,6 +19,7 @@ Contract status: **LOCKED** for `/api/v1`.
 | Files | GET | `/files/{file_id}` | File detail drawer/page |
 | Files | GET | `/files/{file_id}/preview` | Preview table |
 | Mapping | GET | `/mapping/summary` | Mapping KPI/overview |
+| Mapping | GET | `/mapping/canonical-model` | Canonical target entity/field catalog |
 | Mapping | GET | `/mapping/alerts` | Alerts list |
 | Mapping | POST | `/mapping/rerun` | Re-run actions |
 | Quality | GET | `/quality/summary` | Overall quality cards |

@@ -5,6 +5,64 @@ Constraint acknowledged:
 - Lightweight LLM usage is acceptable.
 - Focus on core intelligent mapping feature first.
 
+## Execution Status
+
+- [x] Step 1 - backend workspace created
+- [x] Step 2 - challenge dataset/docs moved into backend workspace
+- [x] Step 3 - folder structure created
+- [x] Step 4 - dependencies initialized
+- [x] Step 5 - FastAPI app + health endpoint created
+- [x] Step 6 - settings loader (`.env`) added
+- [x] Step 7 - structured logging and request IDs
+- [x] Step 8 - upload endpoint implemented (with in-memory metadata registration)
+- [x] Step 9 - parser adapters implemented (CSV/XLSX/PDF/TXT preview parsing)
+- [x] Step 10 - source categorization added for uploaded files
+- [x] Step 11 - canonical model entities
+- [ ] Step 12 - deterministic normalization
+- [ ] Step 13 - mapping configs
+- [ ] Step 14-17 - intelligence layer
+- [ ] Step 18-20 - quality engine
+- [ ] Step 21-22 - persistent storage + export
+- [x] Step 23 - frontend-required API surface implemented
+- [x] Step 24 - rerun mapping endpoint implemented
+- [ ] Step 25-27 - tests, demo hardening, Docker
+
+## Step 9 Completion Notes (Done)
+
+- `GET /api/v1/files/{file_id}/preview` now parses real files instead of fixture-only response.
+- Supported preview parsers:
+  - CSV (delimiter sniff + encoding fallback)
+  - XLSX (first sheet)
+  - PDF (text line extraction)
+  - TXT (line preview)
+- Uploaded files are now registered in an in-memory store and visible in:
+  - `GET /api/v1/files`
+  - `GET /api/v1/files/{file_id}`
+  - `GET /api/v1/files/{file_id}/preview`
+- Smoke-tested successfully with both fixture IDs and real uploaded files.
+
+## Step 7 Completion Notes (Done)
+
+- Added structured request logging with method/path/status/duration.
+- Added request ID middleware:
+  - accepts inbound `X-Request-ID` if provided
+  - generates UUID when missing
+  - returns `X-Request-ID` header in responses
+- Smoke-tested:
+  - `GET /api/v1/health` with custom `X-Request-ID` returns same header.
+  - request logs include the request ID for traceability.
+
+## Step 11 Completion Notes (Done)
+
+- Added canonical entity definitions for:
+  - patient, case, assessment, labs, medication, device, nursing, diagnosis_procedure
+- Added API endpoint:
+  - `GET /api/v1/mapping/canonical-model`
+- Frontend can now use this endpoint as the target-field catalog for:
+  - correction UI dropdowns
+  - mapping review screens
+  - future "target schema explorer" panel
+
 ## Phase 0 - Workspace Setup
 
 1. Create backend workspace under `Project/code/backend`.
