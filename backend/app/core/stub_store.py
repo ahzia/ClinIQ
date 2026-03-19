@@ -1,6 +1,7 @@
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 from app.core.fixtures import load_fixture
 
@@ -16,7 +17,9 @@ class StubStore:
         self._corrections = deepcopy(load_fixture("corrections_queue.json"))
         self._files_payload = deepcopy(load_fixture("files.json"))
         self._file_details_template = deepcopy(load_fixture("file_details.json"))
+        self._fixture_files_by_id = {item["id"]: item for item in self._files_payload.get("files", [])}
         self._uploads: dict[str, dict] = {}
+        self._auto_routes: dict[str, list[dict]] = {}
         self._project_root = Path(__file__).resolve().parents[2]
         self._challenge_root = self._project_root / "epaCC-START-Hack-2026"
         self._known_fixture_paths = {
@@ -57,6 +60,25 @@ class StubStore:
     def get_corrections(self) -> dict:
         return self._corrections
 
+    def accepted_target_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for item in self._corrections.get("queue", []):
+            if item.get("status") in {"accepted", "edited"}:
+                target = item.get("suggested_target")
+                if target:
+                    counts[target] = counts.get(target, 0) + 1
+        return counts
+
+    def correction_memory_for_source(self, source_id: str) -> dict[str, str]:
+        memory: dict[str, str] = {}
+        for item in self._corrections.get("queue", []):
+            if item.get("status") in {"accepted", "edited"} and item.get("source_id") == source_id:
+                source_field = str(item.get("source_field", "")).strip().lower().replace("-", "_").replace(" ", "_")
+                target = item.get("suggested_target")
+                if source_field and target:
+                    memory[source_field] = target
+        return memory
+
     def list_files(self) -> dict:
         payload = deepcopy(self._files_payload)
         payload["files"].extend(self._uploads.values())
@@ -94,6 +116,14 @@ class StubStore:
 
         detail = deepcopy(self._file_details_template)
         detail["file"]["id"] = file_id
+        if file_id in self._fixture_files_by_id:
+            item = self._fixture_files_by_id[file_id]
+            detail["file"]["name"] = item["name"]
+            detail["file"]["format"] = item["format"]
+            detail["file"]["source_id"] = item["source_id"]
+            detail["file"]["status"] = item["status"]
+            detail["mapping"]["status"] = item["mapping_status"]
+            detail["quality"]["status"] = item["quality_status"]
         if file_id in self._known_fixture_paths:
             detail["file"]["path"] = self._known_fixture_paths[file_id]
         return detail
@@ -134,6 +164,81 @@ class StubStore:
             if item["id"] == correction_id:
                 return item
         return None
+
+    def _remove_generated_queue_items_for_file(self, file_id: str) -> None:
+        self._corrections["queue"] = [
+            item
+            for item in self._corrections["queue"]
+            if not (item.get("file_id") == file_id and item.get("generated_by") == "routing_engine")
+        ]
+        self._recompute_summary()
+
+    def route_confidence_results(
+        self,
+        *,
+        file_id: str,
+        source_id: str,
+        confidence_results: list[dict],
+        include_warnings_in_queue: bool = True,
+    ) -> dict:
+        self._remove_generated_queue_items_for_file(file_id)
+        self._auto_routes[file_id] = []
+
+        added_to_queue = 0
+        auto_count = 0
+        warning_count = 0
+        manual_count = 0
+
+        for item in confidence_results:
+            route = item.get("route")
+            source_field = item.get("source_field")
+            target_field = item.get("target_field")
+            score = float(item.get("final_score", 0.0))
+            reason = item.get("reason", "")
+
+            if route == "auto":
+                auto_count += 1
+                self._auto_routes[file_id].append(
+                    {
+                        "source_field": source_field,
+                        "target_field": target_field,
+                        "score": score,
+                        "reason": reason,
+                    }
+                )
+                continue
+
+            if route == "warning":
+                warning_count += 1
+                if not include_warnings_in_queue:
+                    continue
+
+            if route == "manual_review":
+                manual_count += 1
+
+            correction_item = {
+                "id": f"rt_{uuid4().hex[:10]}",
+                "file_id": file_id,
+                "source_id": source_id,
+                "source_field": source_field,
+                "suggested_target": target_field or "unresolved",
+                "confidence": round(score, 4),
+                "status": "pending_review",
+                "reason": reason,
+                "generated_by": "routing_engine",
+            }
+            self._corrections["queue"].append(correction_item)
+            added_to_queue += 1
+
+        self._recompute_summary()
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "auto_count": auto_count,
+            "warning_count": warning_count,
+            "manual_review_count": manual_count,
+            "queued_items_added": added_to_queue,
+        }
 
     def _recompute_summary(self) -> None:
         queue = self._corrections["queue"]

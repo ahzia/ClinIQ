@@ -4,11 +4,24 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 
 from app.core.fixtures import load_fixture
+from app.core.settings import settings
 from app.core.stub_store import stub_store
 from app.ingest.preview_parser import parse_file_preview
 from app.mapping.canonical_model import get_canonical_model
+from app.mapping.confidence import score_mapping_confidence
+from app.mapping.config_mapping import apply_mapping_rules, list_mapping_rule_files, load_mapping_rules
+from app.mapping.hypothesis import generate_column_hypotheses
+from app.mapping.normalization import normalize_rows
+from app.quality.engine import evaluate_file_quality
 from app.schemas.contracts import (
+    MappingConfidenceResponse,
+    MappingRouteRequest,
+    MappingRouteResponse,
+    MappingHypothesisResponse,
     CanonicalModelResponse,
+    MappedPreviewResponse,
+    MappingRuleListResponse,
+    MappingRuleResponse,
     ContractVersionResponse,
     CorrectionActionRequest,
     CorrectionActionResponse,
@@ -21,12 +34,120 @@ from app.schemas.contracts import (
     MappingRerunRequest,
     MappingRerunResponse,
     MappingSummaryResponse,
+    NormalizePreviewResponse,
+    RuntimeConfigResponse,
     QualityBySourceResponse,
     QualitySummaryResponse,
     SourcesResponse,
 )
 
 router = APIRouter(tags=["frontend-stub"])
+
+
+def _compute_quality_payloads() -> tuple[dict, dict, dict]:
+    files_payload = stub_store.list_files()
+    by_source: dict[str, list[dict]] = {}
+    all_results: list[dict] = []
+    alerts: list[dict] = []
+
+    for f in files_payload.get("files", []):
+        file_id = f.get("id")
+        if not file_id:
+            continue
+        source_id = f.get("source_id", "unknown")
+        path = stub_store.get_file_path(file_id)
+        if not path:
+            continue
+        kind, columns, rows, _ = parse_file_preview(path)
+        if kind != "table":
+            continue
+
+        result = evaluate_file_quality(
+            file_id=file_id,
+            source_id=source_id,
+            columns=columns,
+            rows=rows,
+            case_link_window_hours=settings.case_link_window_hours,
+            identity_conflict_high_threshold=settings.identity_conflict_high_threshold,
+        )
+        by_source.setdefault(source_id, []).append(
+            {
+                "clean_percent": result.clean_percent,
+                "missing_percent": result.missing_percent,
+                "incorrect_percent": result.incorrect_percent,
+            }
+        )
+        all_results.append(
+            {
+                "missing_required_ids": result.missing_required_ids,
+                "schema_drift": result.schema_drift,
+                "value_anomalies": result.value_anomalies,
+                "clean_percent": result.clean_percent,
+                "missing_percent": result.missing_percent,
+                "incorrect_percent": result.incorrect_percent,
+            }
+        )
+        for idx, alert in enumerate(result.alerts, start=1):
+            alerts.append(
+                {
+                    "id": f"a_{file_id}_{idx}",
+                    "severity": alert["severity"],
+                    "file_id": file_id,
+                    "source_id": source_id,
+                    "type": alert["type"],
+                    "message": alert["message"],
+                    "action": alert["action"],
+                }
+            )
+
+    if not all_results:
+        summary_payload = {
+            "summary": {
+                "overall_quality_score": 100,
+                "clean_percent": 100,
+                "missing_percent": 0,
+                "incorrect_percent": 0,
+            },
+            "kpis": {
+                "files_with_missing_required_ids": 0,
+                "files_with_schema_drift": 0,
+                "files_with_value_anomalies": 0,
+            },
+        }
+        by_source_payload = {"items": []}
+        alerts_payload = {"alerts": []}
+        return summary_payload, by_source_payload, alerts_payload
+
+    clean_avg = round(sum(r["clean_percent"] for r in all_results) / len(all_results))
+    missing_avg = round(sum(r["missing_percent"] for r in all_results) / len(all_results))
+    incorrect_avg = round(sum(r["incorrect_percent"] for r in all_results) / len(all_results))
+    summary_payload = {
+        "summary": {
+            "overall_quality_score": max(0, min(100, clean_avg)),
+            "clean_percent": clean_avg,
+            "missing_percent": missing_avg,
+            "incorrect_percent": incorrect_avg,
+        },
+        "kpis": {
+            "files_with_missing_required_ids": sum(1 for r in all_results if r["missing_required_ids"]),
+            "files_with_schema_drift": sum(1 for r in all_results if r["schema_drift"]),
+            "files_with_value_anomalies": sum(1 for r in all_results if r["value_anomalies"]),
+        },
+    }
+
+    by_source_items = []
+    for source_id, rows in by_source.items():
+        by_source_items.append(
+            {
+                "source_id": source_id,
+                "clean_percent": round(sum(r["clean_percent"] for r in rows) / len(rows)),
+                "missing_percent": round(sum(r["missing_percent"] for r in rows) / len(rows)),
+                "incorrect_percent": round(sum(r["incorrect_percent"] for r in rows) / len(rows)),
+            }
+        )
+    by_source_payload = {"items": sorted(by_source_items, key=lambda x: x["source_id"])}
+    alerts_payload = {"alerts": alerts}
+    return summary_payload, by_source_payload, alerts_payload
 
 
 # ---- Sources / categories ----
@@ -73,20 +194,227 @@ def mapping_canonical_model() -> CanonicalModelResponse:
     return get_canonical_model()
 
 
+@router.get("/mapping/configs", response_model=MappingRuleListResponse)
+def mapping_configs() -> MappingRuleListResponse:
+    return {"files": list_mapping_rule_files()}
+
+
+@router.get("/mapping/configs/{source_id}", response_model=MappingRuleResponse)
+def mapping_config_by_source(source_id: str) -> MappingRuleResponse:
+    try:
+        return load_mapping_rules(source_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Mapping config not found")
+
+
+@router.get("/mapping/normalize-preview/{file_id}", response_model=NormalizePreviewResponse)
+def normalize_preview(file_id: str) -> NormalizePreviewResponse:
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    kind, columns, rows, notes = parse_file_preview(path)
+    if kind != "table":
+        return {
+            "file_id": file_id,
+            "kind": kind,
+            "columns": columns,
+            "rows": rows,
+            "stats": {
+                "rows_processed": len(rows),
+                "case_id_normalized": 0,
+                "patient_id_normalized": 0,
+                "nulls_normalized": 0,
+                "datetimes_normalized": 0,
+                "case_id_source_column": None,
+                "patient_id_source_column": None,
+            },
+            "notes": notes + ["Normalization currently applies to table-like data only."],
+        }
+
+    normalized_rows, stats = normalize_rows(rows, columns)
+    return {
+        "file_id": file_id,
+        "kind": kind,
+        "columns": columns + ["normalized_case_id", "normalized_patient_id"],
+        "rows": normalized_rows,
+        "stats": stats,
+        "notes": notes + ["Deterministic normalization applied (IDs/nulls/dates)."],
+    }
+
+
+@router.get("/mapping/mapped-preview/{file_id}", response_model=MappedPreviewResponse)
+def mapped_preview(file_id: str) -> MappedPreviewResponse:
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    details = stub_store.get_file_details(file_id)
+    source_id = details["file"]["source_id"]
+
+    kind, columns, rows, notes = parse_file_preview(path)
+    if kind != "table":
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "kind": kind,
+            "rows": rows,
+            "stats": {"mapped_fields": 0, "unmapped_fields": 0, "rule_count": 0},
+            "notes": notes + ["Config mapping currently applies to table-like data only."],
+        }
+
+    try:
+        rules_payload = load_mapping_rules(source_id)
+    except FileNotFoundError:
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "kind": kind,
+            "rows": rows,
+            "stats": {"mapped_fields": 0, "unmapped_fields": len(rows) * max(len(columns), 1), "rule_count": 0},
+            "notes": notes + [f"No mapping config found for source_id={source_id}."],
+        }
+
+    mapped_rows, stats = apply_mapping_rules(rows, rules_payload)
+    return {
+        "file_id": file_id,
+        "source_id": source_id,
+        "kind": kind,
+        "rows": mapped_rows,
+        "stats": stats,
+        "notes": notes + [f"Applied mapping config for source_id={source_id}."],
+    }
+
+
+@router.get("/mapping/hypotheses/{file_id}", response_model=MappingHypothesisResponse)
+def mapping_hypotheses(file_id: str) -> MappingHypothesisResponse:
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    details = stub_store.get_file_details(file_id)
+    source_id = details["file"]["source_id"]
+    kind, columns, _, notes = parse_file_preview(path)
+    if kind != "table":
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "target_catalog_size": 0,
+            "columns_analyzed": 0,
+            "results": [],
+            "notes": notes + ["Hypothesis generator currently supports table-like files only."],
+        }
+
+    payload = generate_column_hypotheses(
+        source_id=source_id,
+        columns=columns,
+        correction_memory=stub_store.correction_memory_for_source(source_id),
+    )
+    return {
+        "file_id": file_id,
+        "source_id": source_id,
+        "target_catalog_size": payload["target_catalog_size"],
+        "columns_analyzed": payload["columns_analyzed"],
+        "results": payload["results"],
+        "notes": notes + payload["notes"],
+    }
+
+
+@router.get("/mapping/confidence/{file_id}", response_model=MappingConfidenceResponse)
+def mapping_confidence(file_id: str) -> MappingConfidenceResponse:
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    details = stub_store.get_file_details(file_id)
+    source_id = details["file"]["source_id"]
+    kind, columns, rows, notes = parse_file_preview(path)
+    if kind != "table":
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "columns_analyzed": 0,
+            "results": [],
+            "route_summary": {"auto": 0, "warning": 0, "manual_review": 0},
+            "notes": notes + ["Confidence scoring currently supports table-like files only."],
+        }
+
+    payload = score_mapping_confidence(
+        source_id=source_id,
+        columns=columns,
+        rows=rows,
+        accepted_targets=stub_store.accepted_target_counts(),
+        correction_memory=stub_store.correction_memory_for_source(source_id),
+    )
+    return {
+        "file_id": file_id,
+        "source_id": source_id,
+        "columns_analyzed": payload["columns_analyzed"],
+        "results": payload["results"],
+        "route_summary": payload["route_summary"],
+        "notes": notes + payload["notes"],
+    }
+
+
+@router.post("/mapping/route/{file_id}", response_model=MappingRouteResponse)
+def mapping_route(file_id: str, payload: MappingRouteRequest) -> MappingRouteResponse:
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    details = stub_store.get_file_details(file_id)
+    source_id = details["file"]["source_id"]
+    kind, columns, rows, _ = parse_file_preview(path)
+    if kind != "table":
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "auto_count": 0,
+            "warning_count": 0,
+            "manual_review_count": 0,
+            "queued_items_added": 0,
+            "notes": ["Routing currently supports table-like files only."],
+        }
+
+    conf = score_mapping_confidence(
+        source_id=source_id,
+        columns=columns,
+        rows=rows,
+        accepted_targets=stub_store.accepted_target_counts(),
+        correction_memory=stub_store.correction_memory_for_source(source_id),
+    )
+    routed = stub_store.route_confidence_results(
+        file_id=file_id,
+        source_id=source_id,
+        confidence_results=conf["results"],
+        include_warnings_in_queue=payload.include_warnings_in_queue,
+    )
+    return {
+        **routed,
+        "notes": [
+            "Routing applied from confidence results.",
+            "Auto items kept out of manual queue; warning/manual items added as pending review.",
+        ],
+    }
+
+
 @router.get("/mapping/alerts", response_model=MappingAlertsResponse)
 def mapping_alerts() -> MappingAlertsResponse:
-    return load_fixture("mapping_alerts.json")
+    _, _, alerts_payload = _compute_quality_payloads()
+    return alerts_payload
 
 
 # ---- Quality insights ----
 @router.get("/quality/summary", response_model=QualitySummaryResponse)
 def quality_summary() -> QualitySummaryResponse:
-    return load_fixture("quality_summary.json")
+    summary_payload, _, _ = _compute_quality_payloads()
+    return summary_payload
 
 
 @router.get("/quality/by-source", response_model=QualityBySourceResponse)
 def quality_by_source() -> QualityBySourceResponse:
-    return load_fixture("quality_by_source.json")
+    _, by_source_payload, _ = _compute_quality_payloads()
+    return by_source_payload
 
 
 # ---- Manual correction queue ----
@@ -165,11 +493,19 @@ def get_enums() -> EnumsResponse:
     }
 
 
+@router.get("/meta/runtime-config", response_model=RuntimeConfigResponse)
+def get_runtime_config() -> RuntimeConfigResponse:
+    return {
+        "case_link_window_hours": settings.case_link_window_hours,
+        "identity_conflict_high_threshold": settings.identity_conflict_high_threshold,
+    }
+
+
 @router.get("/contracts/version", response_model=ContractVersionResponse)
 def contract_version() -> ContractVersionResponse:
     return {
         "api_version": "v1",
-        "contract_version": "2026-03-19.1",
+        "contract_version": "2026-03-19.3",
         "stability": "locked",
         "breaking_change_policy": "No breaking changes in /api/v1; use /api/v2 for contract-breaking updates.",
     }

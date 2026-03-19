@@ -1,0 +1,22 @@
+{
+  "source_id": "assessments_epaAC",
+  "description": "Mapping rules for epaAC exports across Data-1/Data-2/Data-3 variants.",
+  "rules": [
+    {"source": "FallID", "target": "case_id"},
+    {"source": "FallNr", "target": "case_id"},
+    {"source": "PATFAL", "target": "case_id"},
+    {"source": "PID", "target": "patient_id"},
+    {"source": "patient_id", "target": "patient_id"},
+    {"source": "PATGEB", "target": "patient_id"},
+    {"source": "Einschätzung", "target": "assessment_datetime"},
+    {"source": "EinschDat", "target": "assessment_datetime"},
+    {"source": "EPAERHDAT", "target": "assessment_datetime"},
+    {"source": "SID", "target": "item_id"},
+    {"source": "ItmSID", "target": "item_id"},
+    {"source": "SID_value", "target": "item_value"},
+    {"source": "Station", "target": "ward"},
+    {"source": "StatBez", "target": "ward"},
+    {"source": "Account", "target": "assessment_type"}
+  ]
+}
+

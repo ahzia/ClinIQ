@@ -1,0 +1,26 @@
+{
+  "source_id": "nursing_reports",
+  "description": "Mapping rules for nursing report CSV/PDF text exports.",
+  "rules": [
+    {"source": "case_id", "target": "case_id"},
+    {"source": "CaseID", "target": "case_id"},
+    {"source": "CAS", "target": "case_id"},
+    {"source": "patient_id", "target": "patient_id"},
+    {"source": "PatientID", "target": "patient_id"},
+    {"source": "PAT", "target": "patient_id"},
+    {"source": "ward", "target": "ward"},
+    {"source": "Ward", "target": "ward"},
+    {"source": "WAR", "target": "ward"},
+    {"source": "report_date", "target": "report_date"},
+    {"source": "ReportDate", "target": "report_date"},
+    {"source": "DAT", "target": "report_date"},
+    {"source": "shift", "target": "shift"},
+    {"source": "Shift", "target": "shift"},
+    {"source": "SHF", "target": "shift"},
+    {"source": "nursing_note_free_text", "target": "nursing_note_free_text"},
+    {"source": "NursingNote", "target": "nursing_note_free_text"},
+    {"source": "TXT", "target": "nursing_note_free_text"},
+    {"source": "text", "target": "nursing_note_free_text"}
+  ]
+}
+

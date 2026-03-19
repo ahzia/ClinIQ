@@ -20,7 +20,14 @@ Contract status: **LOCKED** for `/api/v1`.
 | Files | GET | `/files/{file_id}/preview` | Preview table |
 | Mapping | GET | `/mapping/summary` | Mapping KPI/overview |
 | Mapping | GET | `/mapping/canonical-model` | Canonical target entity/field catalog |
-| Mapping | GET | `/mapping/alerts` | Alerts list |
+| Mapping | GET | `/mapping/normalize-preview/{file_id}` | Deterministic normalized data preview |
+| Mapping | GET | `/mapping/configs` | Available mapping config files |
+| Mapping | GET | `/mapping/configs/{source_id}` | Mapping rules for one source |
+| Mapping | GET | `/mapping/mapped-preview/{file_id}` | Config-mapped data preview |
+| Mapping | GET | `/mapping/hypotheses/{file_id}` | Candidate target fields per source column |
+| Mapping | GET | `/mapping/confidence/{file_id}` | Weighted confidence + routing recommendation |
+| Mapping | POST | `/mapping/route/{file_id}` | Persist route buckets into queue workflow |
+| Mapping | GET | `/mapping/alerts` | Runtime alert list (quality/mapping checks) |
 | Mapping | POST | `/mapping/rerun` | Re-run actions |
 | Quality | GET | `/quality/summary` | Overall quality cards |
 | Quality | GET | `/quality/by-source` | Stacked quality chart |
@@ -29,6 +36,7 @@ Contract status: **LOCKED** for `/api/v1`.
 | Corrections | POST | `/corrections/{correction_id}/reject` | Reject action |
 | Corrections | PATCH | `/corrections/{correction_id}` | Edit/override action |
 | Meta | GET | `/meta/enums` | Filters/badges enums |
+| Meta | GET | `/meta/runtime-config` | Backend runtime defaults for identity/linking |
 | Meta | GET | `/contracts/version` | API contract check |
 
 ## Required Enums (from `/meta/enums`)
@@ -62,7 +70,7 @@ Frontend should show:
 
 - [ ] Use `/contracts/version` on app startup (optional banner/log only).
 - [ ] Wire query keys to all GET endpoints.
-- [ ] Wire mutations for correction actions and rerun.
+- [ ] Wire mutations for correction actions, rerun, and route-persist.
 - [ ] Invalidate affected queries after mutations.
 - [ ] Add badge rendering based on enum endpoints, not hardcoded strings.
 

@@ -244,6 +244,11 @@ class ContractVersionResponse(BaseModel):
     breaking_change_policy: str
 
 
+class RuntimeConfigResponse(BaseModel):
+    case_link_window_hours: int
+    identity_conflict_high_threshold: int
+
+
 class CanonicalEntity(BaseModel):
     id: str
     label: str
@@ -253,3 +258,118 @@ class CanonicalEntity(BaseModel):
 
 class CanonicalModelResponse(BaseModel):
     entities: list[CanonicalEntity]
+
+
+class NormalizationStatsResponse(BaseModel):
+    rows_processed: int
+    case_id_normalized: int
+    patient_id_normalized: int
+    nulls_normalized: int
+    datetimes_normalized: int
+    case_id_source_column: str | None = None
+    patient_id_source_column: str | None = None
+
+
+class NormalizePreviewResponse(BaseModel):
+    file_id: str
+    kind: str
+    columns: list[str]
+    rows: list[dict]
+    stats: NormalizationStatsResponse
+    notes: list[str]
+
+
+class MappingRuleItem(BaseModel):
+    source: str
+    target: str
+
+
+class MappingRuleResponse(BaseModel):
+    source_id: str
+    description: str
+    rules: list[MappingRuleItem]
+
+
+class MappingRuleListResponse(BaseModel):
+    files: list[str]
+
+
+class MappedPreviewStats(BaseModel):
+    mapped_fields: int
+    unmapped_fields: int
+    rule_count: int
+
+
+class MappedPreviewResponse(BaseModel):
+    file_id: str
+    source_id: str
+    kind: str
+    rows: list[dict]
+    stats: MappedPreviewStats
+    notes: list[str]
+
+
+class HypothesisCandidate(BaseModel):
+    target_field: str
+    score: float
+    reason: str
+    signal: str
+
+
+class ColumnHypothesis(BaseModel):
+    source_field: str
+    candidates: list[HypothesisCandidate]
+
+
+class MappingHypothesisResponse(BaseModel):
+    file_id: str
+    source_id: str
+    target_catalog_size: int
+    columns_analyzed: int
+    results: list[ColumnHypothesis]
+    notes: list[str]
+
+
+class ConfidenceSignals(BaseModel):
+    semantic_name_similarity: float
+    value_pattern_match: float
+    cross_field_consistency: float
+    history_prior: float
+
+
+class ConfidenceItem(BaseModel):
+    source_field: str
+    target_field: str | None = None
+    final_score: float
+    route: Literal["auto", "warning", "manual_review"]
+    signals: ConfidenceSignals
+    reason: str
+
+
+class RouteSummary(BaseModel):
+    auto: int
+    warning: int
+    manual_review: int
+
+
+class MappingConfidenceResponse(BaseModel):
+    file_id: str
+    source_id: str
+    columns_analyzed: int
+    results: list[ConfidenceItem]
+    route_summary: RouteSummary
+    notes: list[str]
+
+
+class MappingRouteRequest(BaseModel):
+    include_warnings_in_queue: bool = True
+
+
+class MappingRouteResponse(BaseModel):
+    file_id: str
+    source_id: str
+    auto_count: int
+    warning_count: int
+    manual_review_count: int
+    queued_items_added: int
+    notes: list[str]

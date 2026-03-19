@@ -1,0 +1,26 @@
+{
+  "source_id": "device_motion",
+  "description": "Mapping rules for hourly and 1Hz device motion/fall datasets.",
+  "rules": [
+    {"source": "patient_id", "target": "patient_id"},
+    {"source": "PatientID", "target": "patient_id"},
+    {"source": "id", "target": "patient_id"},
+    {"source": "id_pat", "target": "patient_id"},
+    {"source": "device_id", "target": "device_id"},
+    {"source": "DeviceID", "target": "device_id"},
+    {"source": "id_dev", "target": "device_id"},
+    {"source": "timestamp", "target": "timestamp"},
+    {"source": "Timestamp", "target": "timestamp"},
+    {"source": "date", "target": "timestamp"},
+    {"source": "movement_index_0_100", "target": "movement_index_0_100"},
+    {"source": "idx_mov", "target": "movement_index_0_100"},
+    {"source": "movement_score_0_100", "target": "movement_index_0_100"},
+    {"source": "micro_movements_count", "target": "micro_movements_count"},
+    {"source": "num_mov", "target": "micro_movements_count"},
+    {"source": "fall_event_0_1", "target": "fall_event_0_1"},
+    {"source": "fall", "target": "fall_event_0_1"},
+    {"source": "impact_magnitude_g", "target": "impact_magnitude_g"},
+    {"source": "mag_impact", "target": "impact_magnitude_g"}
+  ]
+}
+

@@ -199,9 +199,82 @@ Response shape:
   - schema explorer panel
   - validation of selected `suggested_target`
 
+## Normalize Preview (Deterministic)
+- `GET /mapping/normalize-preview/{file_id}`
+- Purpose: provide deterministic normalized preview for review UI.
+- Adds:
+  - `normalized_case_id`
+  - `normalized_patient_id`
+- Includes stats:
+  - rows processed
+  - IDs normalized
+  - datetime conversions
+  - detected source key columns
+
+## Mapping Configs (Source-Specific)
+- `GET /mapping/configs`
+  - Returns available mapping config filenames.
+- `GET /mapping/configs/{source_id}`
+  - Returns rule payload for a specific source.
+- `GET /mapping/mapped-preview/{file_id}`
+  - Returns preview rows after source-config mapping is applied.
+  - Includes mapping stats:
+    - `mapped_fields`
+    - `unmapped_fields`
+    - `rule_count`
+
+## Mapping Hypotheses (Intelligence Step 14)
+- `GET /mapping/hypotheses/{file_id}`
+- Purpose:
+  - get candidate target fields for each source column
+  - surface explainable suggestion reasons in UI
+- Response includes:
+  - `source_field`
+  - `candidates[]` with:
+    - `target_field`
+    - `score`
+    - `reason`
+    - `signal` (`correction_memory`, `config_exact`, or `fuzzy`)
+
+## Mapping Confidence (Intelligence Step 15)
+- `GET /mapping/confidence/{file_id}`
+- Purpose:
+  - apply weighted confidence scoring over top mapping candidates
+  - return routing recommendation for UI workflow
+- Response includes:
+  - per-field `final_score`
+  - `route` (`auto`, `warning`, `manual_review`)
+  - signal breakdown:
+    - `semantic_name_similarity`
+    - `value_pattern_match`
+    - `cross_field_consistency`
+    - `history_prior`
+  - route summary counts for dashboard chips
+
+## Mapping Route Persistence (Intelligence Step 16)
+- `POST /mapping/route/{file_id}`
+- Purpose:
+  - persist confidence routes into workflow state
+  - keep `auto` mappings out of manual queue
+  - push `warning`/`manual_review` items into correction queue
+- Request body:
+```json
+{
+  "include_warnings_in_queue": true
+}
+```
+- Response fields:
+  - `auto_count`
+  - `warning_count`
+  - `manual_review_count`
+  - `queued_items_added`
+  - `notes`
+
 ## Mapping Alerts
 - `GET /mapping/alerts`
 - Purpose: alert list with severity chips and action hints.
+- Current behavior:
+  - runtime-generated from quality engine checks (not fixture-only).
 
 Response item fields:
 - `id`
@@ -215,10 +288,14 @@ Response item fields:
 ## Quality Summary
 - `GET /quality/summary`
 - Purpose: overall quality score + KPI counters.
+- Current behavior:
+  - runtime-computed from parser preview samples.
 
 ## Quality by Source
 - `GET /quality/by-source`
 - Purpose: stacked percentage chart by category.
+- Current behavior:
+  - runtime-computed per source from parser preview samples.
 
 Response item fields:
 - `source_id`
@@ -316,6 +393,10 @@ These endpoints are now part of the locked frontend contract:
   - Returns `api_version`, `contract_version`, `stability`, `breaking_change_policy`.
 - `GET /meta/enums`
   - Returns all enums needed for status badges and filters.
+- `GET /meta/runtime-config`
+  - Returns runtime defaults used in backend quality/linking logic:
+    - `case_link_window_hours`
+    - `identity_conflict_high_threshold`
 
 ## Corrections Actions (write APIs)
 - `POST /corrections/{correction_id}/approve`
@@ -343,6 +424,7 @@ Response shape:
 
 ## Mapping Control
 - `POST /mapping/rerun`
+- `POST /mapping/route/{file_id}`
 
 Request body:
 ```json
@@ -369,11 +451,33 @@ Response:
 }
 ```
 
+Route request:
+```json
+{
+  "include_warnings_in_queue": true
+}
+```
+
+Route response:
+```json
+{
+  "file_id": "f_clinic2_device",
+  "source_id": "device_motion",
+  "auto_count": 1,
+  "warning_count": 5,
+  "manual_review_count": 2,
+  "queued_items_added": 7,
+  "notes": ["Routing applied from confidence results."]
+}
+```
+
 ## Updated TanStack Query Keys
 
 Add:
 - `["contract-version"]`
 - `["meta-enums"]`
+- `["runtime-config"]`
+- `["mapping-route", fileId]`
 
 For mutations:
 - `approve-correction`

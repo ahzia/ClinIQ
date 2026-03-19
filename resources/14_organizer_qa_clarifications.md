@@ -23,6 +23,8 @@ Project impact:
 - Organizers uploaded **`Checkdata.zip`** then **`Checkdata-final.zip`** for validation.
 - `Checkdata-final.zip` is the latest reference.
 - Sample DB (`Hack2026.bak`) shows expected import result shape.
+- Difference note shared by organizer:
+  - `Checkdata-final` includes updated importtable data for `epaAC-Data-3` and DB table `tbImportAcData`.
 
 Project impact:
 - use `Checkdata-final.zip` as default QA reference.
@@ -41,6 +43,8 @@ Project impact:
   - flag as import/mapping error, or
   - use source-prefix strategy to preserve uniqueness with provenance.
 - Case-centric mapping can use patient ID + datetime when direct case ID is missing.
+- Organizer support note:
+  - when unresolved edge cases remain, teams were advised to check with booth colleagues; until then, safe alert-first handling is acceptable.
 
 Project impact:
 - implement fallback linking logic:
@@ -96,4 +100,7 @@ Project impact:
 - `epaAC-Data-3.csv` is now included in final validation dataset and should be handled.
 - Error folder findings should be surfaced, not silently "fixed away."
 - Ambiguous identity joins should be explainable and reviewable.
+- If same patient IDs conflict strongly, acceptable handling includes:
+  - source-prefix strategy for uniqueness with provenance, or
+  - explicit import error in dashboard.
 

@@ -1,0 +1,19 @@
+{
+  "source_id": "diagnoses_icd_ops",
+  "description": "Mapping rules for ICD10/OPS diagnosis-procedure datasets.",
+  "rules": [
+    {"source": "case_id", "target": "case_id"},
+    {"source": "CaseID", "target": "case_id"},
+    {"source": "ID_CAS", "target": "case_id"},
+    {"source": "patient_id", "target": "patient_id"},
+    {"source": "PatientID", "target": "patient_id"},
+    {"source": "ID_PAT", "target": "patient_id"},
+    {"source": "ward", "target": "ward"},
+    {"source": "Station", "target": "ward"},
+    {"source": "admission_date", "target": "admission_date"},
+    {"source": "discharge_date", "target": "discharge_date"},
+    {"source": "primary_icd10_code", "target": "primary_icd10_code"},
+    {"source": "ops_codes", "target": "ops_codes"}
+  ]
+}
+

@@ -41,6 +41,8 @@ Current variables:
 - `APP_ENV` (default: `dev`)
 - `APP_VERSION` (default: `0.1.0`)
 - `API_PREFIX` (default: `/api/v1`)
+- `CASE_LINK_WINDOW_HOURS` (default: `6`)
+- `IDENTITY_CONFLICT_HIGH_THRESHOLD` (default: `2`)
 
 ## 4) Run the Backend
 
@@ -79,6 +81,12 @@ Sources:
 curl "http://localhost:8000/api/v1/sources"
 ```
 
+Runtime config (identity-link defaults):
+
+```bash
+curl "http://localhost:8000/api/v1/meta/runtime-config"
+```
+
 Corrections queue:
 
 ```bash
@@ -101,6 +109,14 @@ curl -X POST "http://localhost:8000/api/v1/mapping/rerun" \
   -d '{"scope":"all","file_id":null,"source_id":null}'
 ```
 
+Route confidence output into queue:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/mapping/route/f_clinic2_device" \
+  -H "Content-Type: application/json" \
+  -d '{"include_warnings_in_queue": true}'
+```
+
 Upload a file:
 
 ```bash
@@ -118,6 +134,13 @@ curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
 - `GET /api/v1/files/{file_id}/preview`
 - `GET /api/v1/mapping/summary`
 - `GET /api/v1/mapping/canonical-model`
+- `GET /api/v1/mapping/normalize-preview/{file_id}`
+- `GET /api/v1/mapping/configs`
+- `GET /api/v1/mapping/configs/{source_id}`
+- `GET /api/v1/mapping/mapped-preview/{file_id}`
+- `GET /api/v1/mapping/hypotheses/{file_id}`
+- `GET /api/v1/mapping/confidence/{file_id}`
+- `POST /api/v1/mapping/route/{file_id}`
 - `GET /api/v1/mapping/alerts`
 - `POST /api/v1/mapping/rerun`
 - `GET /api/v1/quality/summary`
@@ -127,6 +150,7 @@ curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
 - `POST /api/v1/corrections/{correction_id}/reject`
 - `PATCH /api/v1/corrections/{correction_id}`
 - `GET /api/v1/meta/enums`
+- `GET /api/v1/meta/runtime-config`
 - `GET /api/v1/contracts/version`
 
 ## 7) Project Structure (Current)
@@ -158,7 +182,8 @@ backend/
 ## 8) Notes
 
 - `/api/v1` contract is locked for frontend integration.
-- Internals will move from fixture-backed responses to real processing logic without breaking response shapes.
+- Internals continue moving from fixture-backed responses to real processing logic without breaking response shapes.
+- Quality endpoints and mapping alerts are now runtime-computed from parser output samples.
 - Frontend documentation is under:
   - `Project/resources/fronted/01_frontend_requirements_and_api_contract.md`
   - `Project/resources/fronted/03_api_contract_lock_matrix.md`

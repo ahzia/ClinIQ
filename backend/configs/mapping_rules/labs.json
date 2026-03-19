@@ -1,0 +1,17 @@
+{
+  "source_id": "labs",
+  "description": "Mapping rules for lab datasets and altered lab exports.",
+  "rules": [
+    {"source": "case_id", "target": "case_id"},
+    {"source": "CaseID", "target": "case_id"},
+    {"source": "cas", "target": "case_id"},
+    {"source": "patient_id", "target": "patient_id"},
+    {"source": "PID", "target": "patient_id"},
+    {"source": "pat", "target": "patient_id"},
+    {"source": "specimen_datetime", "target": "specimen_datetime"},
+    {"source": "SpecDT", "target": "specimen_datetime"},
+    {"source": "ward", "target": "ward"},
+    {"source": "war", "target": "ward"}
+  ]
+}
+

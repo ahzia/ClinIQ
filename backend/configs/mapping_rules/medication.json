@@ -1,0 +1,22 @@
+{
+  "source_id": "medication",
+  "description": "Mapping rules for medication order/admin exports.",
+  "rules": [
+    {"source": "record_type", "target": "record_type"},
+    {"source": "rec_type", "target": "record_type"},
+    {"source": "patient_id", "target": "patient_id"},
+    {"source": "pat_id", "target": "patient_id"},
+    {"source": "encounter_id", "target": "encounter_id"},
+    {"source": "enc_id", "target": "encounter_id"},
+    {"source": "medication_code_atc", "target": "medication_code"},
+    {"source": "medication_name", "target": "medication_name"},
+    {"source": "route", "target": "route"},
+    {"source": "dose", "target": "dose"},
+    {"source": "dose_unit", "target": "dose_unit"},
+    {"source": "frequency", "target": "frequency"},
+    {"source": "administration_datetime", "target": "administration_datetime"},
+    {"source": "administration_status", "target": "administration_status"},
+    {"source": "ward", "target": "ward"}
+  ]
+}
+
