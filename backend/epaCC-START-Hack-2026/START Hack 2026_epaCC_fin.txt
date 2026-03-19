@@ -1,0 +1,73 @@
+Smart Health Data Mapping
+From Raw Data to Insights – A Hackathon Challenge
+1
+
+
+The Problem: Data Everywhere, But Isolated
+Hospital Information SystemsCore clinical records in different formats
+
+Lab SoftwareDiagnostic results in isolated databases
+
+Excel ExportsManual data extracts with inconsistent structure
+
+Sensor & Free TextUnstructured data that resists automation
+
+Each system stores data in its own format. Combining them for analytics still requires many manual steps — making the process slow and difficult to scale.
+3
+
+This is exactly the problem we want you to solve!
+4
+
+Your mission
+Build an Intelligent Application
+
+Automatically map healthcare data from different sources into a unified data model.
+Your system should handle:
+Structured tables & CSV files
+PDF documents
+Unstructured free text
+
+Automatically identify, align, and transform data into a consistent structure.
+
+5
+
+In Addition: Interactive Dashboard
+Data Origin & StructureVisualize where data comes from and how it is organized
+
+Quality & CompletenessSurface gaps, inconsistencies, and coverage metrics
+
+Anomaly DectectionAutomatically flag unusual patterns or outlines.
+
+Alerts & CorrectionsAlerts for mapping issues and an interface to correct errors.
+
+6
+
+Real-World HealthCare Data
+Care Assessments
+Diagnoses
+Lab Parameters
+Vital Signs
+Medication Plans
+Resource Planning
+7
+
+Technology: Your Choice
+Freedom to InnovateUse any approach that works – AI, NLP, agents or rules-based logic.
+
+One key requirement: The solution should be deployable on-premises so healthcare data remains securely in-house.
+8
+
+Why This Matters
+1,400InstitutionsAlready working with data from care facilities today
+630,000Active UsersReal people whose daily work could be improved
+€100BDACH MarketAnnual healthcare costs in the region
+1-2%Efficiency GainCould mean hundreds of millions in savings
+9
+
+The Bigger Vision
+From Data to ImpactBy harmonizing healthcare data, we unlock better analytics, better models and faster innovation – ultimately building a digital twin of care situations accross the entire network.
+
+10
+
+Good Luck – Enjoy the Hackathon!
+11

@@ -1,0 +1,174 @@
+Smart Health Data Mapping
+From Raw Data to Insights – A Hackathon Challenge
+A Deep Dive into unifying fragmented healthcare data across systems, formats, and facilities — and your opportunity to build something that matters. March 18, 2026
+1
+
+Who We Are?
+Our mission: Empowering healthcare professionals to make informed decisions with data — at scale, in real time, and across every care setting.
+The epaSystem is based  on the results of a research project that 
+we have been continuously developing since 2002. 
+Our team of scientist, engineer like visionaries has been working 
+on the future of nursing care for over 20 years.
+
+Where We Are?
+1,400 Active Sites
+Healthcare facilities across the DACH region already working with our platform every day.
+4 Countries
+Operating across borders, supporting diverse regulatory and clinical environments.
+4 Languages
+Serving multilingual care teams with at least one of our integrated products.
+3
+
+Why This Matters
+The scale of healthcare data in the DACH region is enormous — and so is the opportunity. Even small efficiency gains translate into massive real-world impact for patients, providers, and systems alike.
+1,400
+Institutions
+Already working with data from care facilities today — a proven foundation to build on.
+630K
+Active Users
+Real healthcare professionals whose daily work could be improved.
+€100B
+DACH Market
+Annual healthcare expenditure in the region — representing the full scope of the opportunity.
+1-2%
+Efficiency Gain
+Even a modest improvement could unlock hundreds of millions in savings across the system.
+4
+
+The Problem: Data Everywhere, But Isolated
+Every healthcare system generates enormous volumes of data — but those systems rarely speak to each other. Combining sources for meaningful analytics still requires many manual steps, making the process slow, error-prone, and difficult to scale.
+Hospital Information Systems
+Core clinical records in different formats.
+Lab Software
+Diagnostic results locked inside isolated databases, rarely accessible in real time.
+Excel Exports
+Manual data extracts with inconsistent structure, prone to versioning and mapping errors.
+Sensor & Free Text
+Unstructured data from devices and clinical notes that resists automated processing entirely.
+5
+
+Real-World Healthcare Data
+Across care facilities, data is generated continuously in six core categories — each critical for delivering quality care, yet each stored independently across disconnected systems. Understanding these data types is the first step to unifying them.
+Care Assessments
+Structured nursing evaluations capturing patient condition, needs, and care plan progress over time.
+Diagnoses
+ICD-coded or free-text clinical diagnoses recorded at admission, discharge, and throughout the care pathway.
+Lab Parameters
+Quantitative results from blood work, urinalysis, and other diagnostic tests — often in isolated lab systems.
+Vital Signs
+Continuous or episodic measurements including pulse, blood pressure, temperature, and oxygen saturation.
+Medication Plans
+Inpatient and outpatient drug regimens with dosage, frequency, and administration records.
+Resource Planning
+Staff assignments, bed management, and operational scheduling data that intersects with clinical workflows.
+6
+
+Header Schema: The Raw Data Reality
+The challenge begins with the data itself. Below are three CSV export formats from the System — each representing the same assessments structured differently. Participants will work with all three formats and must bridge these structural gaps programmatically.
+epaAC-Data-1.csv
+One record per assessment item (Pro Item 1 Dataset). Each row represents a single scored item with its station, account, and SID value.
+epaAC-Data-2.csv
+One record per full assessment with all item data as columns — SID-based wide format. Extremely wide rows, one row per evaluation episode.
+epaAC-Data-3.csv
+One record per assessment with text-based headers and IID-based columns — the most human-readable but least machine-friendly format.
+7
+
+Database Design
+The underlying relational schema organizes incoming data from all source systems into a unified case-centric structure. The central tbCaseData table anchors all imports — connecting assessments, lab results, nursing reports, medication records, and motion sensor data into a single patient timeline.
+Each import table (tbImportAcData, tbImportLabsData, tbImportNursingDailyReports, tbImportMedicationInpatientData, tbImportDeviceMotionData) links to the core case record via shared keys — forming the data model your mapping solution must target.
+8
+
+Your Mission
+Build an Intelligent Application that automatically maps healthcare data from different sources into a unified data model — reducing manual effort and enabling reliable analytics at scale.
+Structured Tables & CSV Files
+Parse, normalize, and map multi-format tabular exports from HIS and lab systems into the target schema.
+PDF Documents
+Extract structured data from clinical PDFs including discharge letters, assessment forms, and reports.
+Unstructured Free Text
+Identify, align, and transform natural-language clinical notes into consistent, structured data fields.
+9
+
+Validate & Load
+Map & Align
+Parse & Normalize
+Ingest
+Your solution should implement this end-to-end pipeline — from raw, heterogeneous inputs to validated, analytics-ready records in the unified data model.
+10
+
+In Addition: Interactive Dashboard
+Beyond data mapping, your solution should surface insights through a purpose-built dashboard that gives clinical and operational teams full visibility into the quality, provenance, and integrity of their data — in real time.
+Data Origin & Structure
+Visualize where each data field comes from, which source system it originated in, and how it was mapped to the unified model.
+Quality & Completeness
+Surface gaps, missing values, inconsistencies, and field-level coverage metrics across all imported datasets.
+Anomaly Detection
+Automatically flag unusual patterns, outliers, or values that fall outside expected clinical or statistical ranges.
+Alerts & Corrections
+Proactive alerts for mapping issues combined with an intuitive interface for reviewing and correcting flagged records.
+11
+
+Full technical details are available in the README of our challenge repository. Make sure to review it thoroughly before you begin building.
+12
+
+Technology: Your Choice
+Freedom to Innovate
+Use any technology stack, framework, or approach that works best for your team — AI/ML models, NLP pipelines, LLM-based agents, rule-based logic, or any combination thereof. There are no restrictions on language or tooling.
+One Key Requirement
+Your solution must be deployable on-premises. Healthcare data is sensitive — it must remain securely within the institution's own infrastructure at all times. No cloud-only solutions will be accepted.
+Whether you're leveraging transformer models for entity extraction, building deterministic schema-matching pipelines, or designing a hybrid agent architecture — the best approach is the one that solves the problem reliably, securely, and at scale.
+13
+
+Judging Criteria
+Submissions will be evaluated by a panel of technical and business experts across six dimensions. Each criterion carries a specific weight — design your solution with the full scorecard in mind.
+25%
+Viability & Business Applicability
+20%
+Complexity & Technical Sophistication
+20%
+Feasibility & Maturity Level
+15%
+Creativity & Innovation
+10%
+Design & Usability
+10%
+Presentation Quality
+14
+
+Summary
+01
+Understand the Problem
+Healthcare data lives in silos — HIS, labs, Excel, free text. Your job is to bridge them.
+02
+Build the Mapping Engine
+Automatically ingest, parse, and align data from all source types into the unified DB schema.
+03
+Visualize & Validate
+Build a dashboard that surfaces data quality, provenance, anomalies, and correction workflows.
+04
+Deploy On-Premises
+Ensure your solution runs securely within institutional infrastructure — no external cloud dependency.
+15
+
+Contact
+Questions? Need clarification on the data model, schema, or challenge scope? Reach out to our team — we're here to help you build something great.
+Andreas Scherzinger
+CTO
+Michael Roth
+Software Developer/
+UI/UX Expert
+Lewis Koua
+Data Engineer
+Madlen Fiebig
+Head of Products & Science
+Lena Frischen
+Data Scientist
+16
+
+Good Luck – Enjoy the Hackathon!
+We're excited to see what you build. Push the boundaries of what's possible with healthcare data — your solution could genuinely change how care is delivered across thousands of institutions.
+ePA-CC GmbH
+Bernhard May Str. 58, Haus J
+65203 Wiesbaden, Germany
+Web
+www.epa-cc.de
+17
