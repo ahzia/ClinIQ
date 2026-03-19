@@ -1,9 +1,10 @@
 "use client";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+/** Default matches Next.js proxy when env is unset (demo-safe). */
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "/api/v1";
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE_URL) throw new Error("Missing NEXT_PUBLIC_API_BASE_URL.");
+  if (!API_BASE_URL) throw new Error("API base URL is not configured.");
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,

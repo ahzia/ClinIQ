@@ -1,6 +1,6 @@
 # Frontend Implementation Overview (Current Status)
 
-Last updated: 2026-03-19
+Last updated: 2026-03-19 (backend contract sync + demo pipeline)
 
 This document summarizes:
 - what has been implemented in frontend,
@@ -30,6 +30,7 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
 
 ## B) API Connectivity and CORS-safe Integration
 - Frontend API client implemented (`apiGet`, `apiPost`, `apiPatch`) with no-store fetch and error handling.
+- **Safe default:** if `NEXT_PUBLIC_API_BASE_URL` is unset, client falls back to `"/api/v1"` (matches Next proxy; demo-safe).
 - Next.js API proxy route added (`/api/v1/[...path]`) so frontend can call backend without browser CORS problems.
 - Env setup adapted:
   - `NEXT_PUBLIC_API_BASE_URL=/api/v1`
@@ -71,6 +72,8 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
   - no wrapping cells (`whitespace-nowrap`),
   - local overflow container.
 - Additional clarity chips added (source count, file count, selected file context).
+- **Preview / details error state** with message and **Retry** (no silent empty state).
+- **Heuristic data-lane pills** on file rows (filename-based: validation / baseline / error test / mapping test) for organizer-style narrative until backend tags exist.
 
 ## E) Mapping Page
 - Mapping summary integrated with breakdown progress bars:
@@ -96,6 +99,17 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
   - compact select mode
   - expanded browse mode
   - entity details (key fields + fields)
+- **`MappingIntelligenceSection`** (demo pipeline — aligns with `08_DEMO_FRONTEND_GAP_AUDIT.md` / `07_frontend_demo_must_have_checklist.md` / `09_AI_BACKEND_INTEGRATION_NOTES.md`):
+  - `GET /meta/runtime-config` — link window, identity threshold, AI enabled (vendor-neutral copy).
+  - File picker + quick presets: `f_clinic2_device`, `f_epaac_1`, `f_clinic3_header_broken`.
+  - `GET /mapping/hypotheses/{file_id}` — top candidate, score, signal, reason.
+  - `GET /mapping/confidence/{file_id}` — per-field scores, signal breakdown, route badges.
+  - `GET /mapping/ai-assist/{file_id}` — deterministic vs LLM layer, conflict badge, expandable “why” reasons.
+  - `POST /mapping/route/{file_id}` — apply routing; shows queued counts.
+  - `POST /storage/sql-load/{file_id}` — conformance %, target table, rows inserted/failed, issues count (options: persist, clear table).
+
+## E2) App shell — demo preset
+- On load, fetches `/files` and selects the first available of `f_clinic2_device` → `f_epaac_1` → `f_clinic3_header_broken` (else first file), with matching `source_id`, so Mapping intelligence is ready for demo.
 
 ## F) Quality Page
 - Quality summary integrated:
@@ -148,18 +162,22 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
    - error test (`mit_Fehlern`)
    - mapping robustness (`split_data...`)
    - validation package (`Checkdata-final`)
+   - *Partial:* filename-heuristic lane pills on Sources file list; dashboard lane cards still optional.
 2. Add **Data Lane segmentation** cards/filters on dashboard:
    - Baseline Correctness
    - Error Detection
    - Mapping Robustness
    - Validation Package
+   - *Not done yet* (overview cards); heuristic tags only on Sources rows for now.
 3. Add explicit **Identity and Linking Issues** alert section:
    - support `id_conflict`
    - support `unresolved_case_link`
+   - *Partial:* Mapping alerts filter **Identity/linking** extended for `identity_conflict`, `case_link`, `missing_required`, etc.
 4. Add **Linking Strategy** explanation panel in file details/corrections:
    - primary: `case_id`
    - fallback: `patient_id + datetime window`
    - low confidence => manual review
+   - *Mapping:* done. *Corrections / file drawer:* still optional duplicate.
 5. Add **Validation Status** widget:
    - files processed
    - major errors
@@ -168,6 +186,7 @@ It reflects current code in `frontend/src/components/*` and organizer updates fr
    - IID/SID lookup area
    - dictionary label rendering placeholder
    - dictionary coverage placeholder metrics
+   - *Partial:* placeholder card on Corrections page; live IID/SID lookup waits on optional API fields.
 
 ## Medium Priority (contract/best-practice alignment)
 1. Consume `/meta/enums` for badge/filter values instead of hardcoded statuses.
@@ -194,8 +213,11 @@ These are backend-relevant from frontend perspective only (no required breaking 
 - Stable availability of:
   - `/health`
   - `/contracts/version`
+  - `/meta/runtime-config`
   - `/sources`, `/files`, `/files/{id}`, `/files/{id}/preview`
   - `/mapping/summary`, `/mapping/alerts`, `/mapping/canonical-model`, `/mapping/rerun`
+  - `/mapping/hypotheses/{file_id}`, `/mapping/confidence/{file_id}`, `/mapping/ai-assist/{file_id}`
+  - `POST /mapping/route/{file_id}`, `POST /storage/sql-load/{file_id}`
   - `/quality/summary`, `/quality/by-source`
   - `/corrections/queue`, correction action endpoints
 
@@ -212,7 +234,8 @@ All above can be additive in `/api/v1` and should not require breaking frontend 
 ## 4) Current Readiness Snapshot
 
 - Frontend is functionally integrated and visually upgraded across all core sections.
-- Core contract endpoints are consumed and operational through frontend proxy.
-- Remaining work is mostly organizer-alignment features and explainability additions.
-- No backend rewrite needed; mainly additive metadata to maximize frontend completeness.
+- **Demo-critical pipeline** (hypotheses, confidence, AI-assist, route-to-queue, SQL conformance, runtime config) is wired on the Mapping page per gap audit.
+- Core + extended `/api/v1` endpoints are consumed through the Next.js proxy.
+- Remaining polish: overview data-lane cards, validation status widget, full epaAC dictionary wiring when backend adds fields, `/meta/enums` consumption, TanStack Query refactor (optional).
+- No backend changes were made from the frontend workstream.
 

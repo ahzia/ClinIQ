@@ -100,7 +100,8 @@ type CorrectionsQueueResponse = {
   };
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "/api/v1";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" });
@@ -169,12 +170,38 @@ export default function AppShell() {
     string | null
   >(null);
 
+  /** Demo-friendly default file/source so Mapping intelligence is one click away. */
+  useEffect(() => {
+    let mounted = true;
+    async function seedDemoSelection() {
+      try {
+        const r = await fetchJson<{ files: { id: string; source_id: string }[] }>(
+          `${API_BASE_URL}/files`
+        );
+        if (!mounted || !r.files?.length) return;
+        const preferred = ["f_clinic2_device", "f_epaac_1", "f_clinic3_header_broken"];
+        const found =
+          preferred.map((id) => r.files.find((f) => f.id === id)).find(Boolean) ??
+          r.files[0];
+        if (!found) return;
+        setSelectedFileId(found.id);
+        setSelectedSourceId(found.source_id);
+      } catch {
+        /* manual selection still works */
+      }
+    }
+    seedDemoSelection();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
     async function run() {
       if (!API_BASE_URL) {
-        if (mounted) setApiError("Missing NEXT_PUBLIC_API_BASE_URL.");
+        if (mounted) setApiError("API base URL is not configured.");
         return;
       }
 
@@ -220,7 +247,7 @@ export default function AppShell() {
     async function run() {
       if (!API_BASE_URL) {
         if (mounted) {
-          setOverviewError("Missing NEXT_PUBLIC_API_BASE_URL.");
+          setOverviewError("API base URL is not configured.");
           setOverviewLoading(false);
         }
         return;

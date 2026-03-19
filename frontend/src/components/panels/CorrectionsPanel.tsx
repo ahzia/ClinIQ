@@ -237,6 +237,15 @@ export default function CorrectionsPanel() {
         <StatusPill tone="warn" text={`${pending} pending review`} />
       </div>
 
+      <GlassCard className="p-4">
+        <div className="text-sm font-semibold text-zinc-100">epaAC dictionary context</div>
+        <div className="mt-2 text-xs text-zinc-400">
+          Reserved for IID/SID → human-readable labels and dictionary coverage when the API adds
+          optional fields. Reviewer flow stays unchanged; no backend changes required for this
+          placeholder.
+        </div>
+      </GlassCard>
+
       <GlassCard className="p-6">
         {loading ? (
           <div className="space-y-3">

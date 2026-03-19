@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { RotateCcw, AlertTriangle, Database, Sparkles } from "lucide-react";
 
 import GlassCard from "../ui/GlassCard";
+import MappingIntelligenceSection from "./MappingIntelligenceSection";
 import { apiGet, apiPost } from "@/lib/api";
 
 type MappingSummaryCounts = {
@@ -258,7 +259,7 @@ export default function MappingPanel({
   }
 
   const max = summary?.summary.total_fields_seen ?? 0;
-  const allAlerts = alerts?.alerts ?? [];
+  const allAlerts = useMemo(() => alerts?.alerts ?? [], [alerts]);
 
   const prioritizedAlerts = useMemo(() => {
     const sevRank: Record<MappingAlertItem["severity"], number> = {
@@ -280,8 +281,19 @@ export default function MappingPanel({
     }
     if (alertFilter === "identity") {
       return prioritizedAlerts.filter((a) => {
-        const hay = `${a.type} ${a.message}`.toLowerCase();
-        return hay.includes("id_conflict") || hay.includes("unresolved_case_link");
+        const t = `${a.type}`.toLowerCase();
+        const msg = `${a.message}`.toLowerCase();
+        return (
+          t.includes("id_conflict") ||
+          t.includes("unresolved_case_link") ||
+          t.includes("identity_conflict") ||
+          t.includes("case_link") ||
+          t.includes("missing_required") ||
+          msg.includes("id_conflict") ||
+          msg.includes("identity") ||
+          msg.includes("case link") ||
+          msg.includes("required id")
+        );
       });
     }
     return prioritizedAlerts;
@@ -311,6 +323,8 @@ export default function MappingPanel({
           </div>
         </div>
       </div>
+
+      <MappingIntelligenceSection selectedFileId={selectedFileId} />
 
       <GlassCard className="p-6">
         {loading ? (

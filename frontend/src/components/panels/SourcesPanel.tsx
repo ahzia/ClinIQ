@@ -126,6 +126,24 @@ function TonePill({ tone, text }: { tone: string; text: string }) {
   );
 }
 
+/** Heuristic validation / data-lane tag for demo narrative (no backend field required). */
+function inferDataLane(fileName: string): { label: string; tone: string } | null {
+  const n = fileName.toLowerCase();
+  if (n.includes("checkdata") || n.includes("validation")) {
+    return { label: "Validation lane", tone: "good" };
+  }
+  if (n.includes("ohne") || n.includes("ohne_fehler")) {
+    return { label: "Baseline", tone: "good" };
+  }
+  if (n.includes("mit_fehl") || n.includes("fehlern") || n.includes("error")) {
+    return { label: "Error test", tone: "bad" };
+  }
+  if (n.includes("split")) {
+    return { label: "Mapping test", tone: "warn" };
+  }
+  return null;
+}
+
 function getSourceRisk(files: FileItem[] | null, sourceId: string) {
   const list = (files ?? []).filter((f) => f.source_id === sourceId);
   const anyFailed = list.some((f) => f.mapping_status === "failed");
@@ -158,6 +176,7 @@ export default function SourcesPanel({
   const [fileDetails, setFileDetails] = useState<FileDetailsResponse | null>(null);
   const [preview, setPreview] = useState<FilePreviewResponse | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const [previewRowLimit, setPreviewRowLimit] = useState(5);
   const [showAllRows, setShowAllRows] = useState(false);
@@ -257,10 +276,12 @@ export default function SourcesPanel({
       if (!selectedFileId) {
         setFileDetails(null);
         setPreview(null);
+        setPreviewError(null);
         return;
       }
 
       setPreviewLoading(true);
+      setPreviewError(null);
       setPreviewRowLimit(5);
       setShowAllRows(false);
       setShowAllNotes(false);
@@ -272,10 +293,14 @@ export default function SourcesPanel({
         if (!mounted) return;
         setFileDetails(details);
         setPreview(p);
-      } catch {
+        setPreviewError(null);
+      } catch (e) {
         if (!mounted) return;
         setFileDetails(null);
         setPreview(null);
+        setPreviewError(
+          e instanceof Error ? e.message : "Failed to load file details or preview."
+        );
       } finally {
         if (mounted) setPreviewLoading(false);
       }
@@ -474,6 +499,7 @@ export default function SourcesPanel({
                         const isActive = f.id === selectedFileId;
                         const mappingTone = statusTone(f.mapping_status);
                         const qualityTone = statusTone(f.quality_status);
+                        const lane = inferDataLane(f.name);
                         return (
                           <motion.button
                             key={f.id}
@@ -499,6 +525,9 @@ export default function SourcesPanel({
                               </div>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
+                              {lane ? (
+                                <TonePill tone={lane.tone} text={lane.label} />
+                              ) : null}
                               <TonePill
                                 tone={mappingTone}
                                 text={f.mapping_status.replace(/_/g, " ")}
@@ -586,6 +615,42 @@ export default function SourcesPanel({
             {!selectedFileId ? (
               <div className="mt-4 rounded-2xl bg-white/5 p-6 text-sm text-zinc-400 ring-1 ring-white/10">
                 Select a file to inspect.
+              </div>
+            ) : previewError && !previewLoading ? (
+              <div className="mt-4 space-y-3 rounded-2xl bg-rose-500/10 p-4 ring-1 ring-rose-400/25">
+                <div className="text-sm font-semibold text-rose-100">
+                  Could not load file preview
+                </div>
+                <div className="text-xs text-rose-200/90">{previewError}</div>
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (!selectedFileId) return;
+                    setPreviewError(null);
+                    setPreviewLoading(true);
+                    Promise.all([
+                      apiGet<FileDetailsResponse>(`/files/${selectedFileId}`),
+                      apiGet<FilePreviewResponse>(`/files/${selectedFileId}/preview`),
+                    ])
+                      .then(([details, p]) => {
+                        setFileDetails(details);
+                        setPreview(p);
+                        setPreviewError(null);
+                      })
+                      .catch((e) => {
+                        setPreviewError(
+                          e instanceof Error ? e.message : "Retry failed."
+                        );
+                        setFileDetails(null);
+                        setPreview(null);
+                      })
+                      .finally(() => setPreviewLoading(false));
+                  }}
+                  className="rounded-2xl bg-white/10 px-4 py-2 text-xs font-semibold text-zinc-100 ring-1 ring-white/20 hover:bg-white/15"
+                >
+                  Retry load
+                </motion.button>
               </div>
             ) : rightTab === "schema" ? (
               <div className="mt-4 space-y-4">
