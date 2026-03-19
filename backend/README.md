@@ -102,6 +102,15 @@ curl -X POST "http://localhost:8000/api/v1/storage/sql-load/f_clinic2_device" \
   -d '{"persist":true,"clear_table_before_insert":true}'
 ```
 
+Final review before database move:
+
+```bash
+curl "http://localhost:8000/api/v1/storage/database-move/candidates?auto_move=false"
+curl -X POST "http://localhost:8000/api/v1/storage/database-move" \
+  -H "Content-Type: application/json" \
+  -d '{"move_all_ready":true}'
+```
+
 Corrections queue:
 
 ```bash
@@ -138,6 +147,20 @@ AI-assisted dual-scoring mapping preview:
 curl "http://localhost:8000/api/v1/mapping/ai-assist/f_clinic2_device"
 ```
 
+ePaAC dictionary lookup and coverage:
+
+```bash
+curl "http://localhost:8000/api/v1/mapping/epaac-dictionary?limit=5"
+curl "http://localhost:8000/api/v1/mapping/epaac-coverage/f_epaac_1"
+```
+
+Normalized export (JSON + CSV):
+
+```bash
+curl "http://localhost:8000/api/v1/export/normalized/f_clean_labs"
+curl "http://localhost:8000/api/v1/export/normalized/f_clean_labs/csv"
+```
+
 Demo communication note:
 - keep UI/pitch wording provider-neutral:
   - "AI-assisted mapping engine"
@@ -150,6 +173,18 @@ Upload a file:
 ```bash
 curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
   -F "file=@epaCC-START-Hack-2026/Endtestdaten_ohne_Fehler_ einheitliche ID/synthetic_cases_icd10_ops.csv"
+```
+
+One-command smoke test:
+
+```bash
+./scripts/smoke.sh
+```
+
+One-command demo seed/reset (rebuild sqlite + load core demo files):
+
+```bash
+./scripts/demo_seed_reset.sh
 ```
 
 ## 6) Current Important Endpoints
@@ -169,6 +204,8 @@ curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
 - `GET /api/v1/mapping/hypotheses/{file_id}`
 - `GET /api/v1/mapping/confidence/{file_id}`
 - `GET /api/v1/mapping/ai-assist/{file_id}`
+- `GET /api/v1/mapping/epaac-dictionary`
+- `GET /api/v1/mapping/epaac-coverage/{file_id}`
 - `POST /api/v1/mapping/route/{file_id}`
 - `GET /api/v1/mapping/alerts`
 - `POST /api/v1/mapping/rerun`
@@ -181,6 +218,10 @@ curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
 - `GET /api/v1/meta/enums`
 - `GET /api/v1/meta/runtime-config`
 - `POST /api/v1/storage/sql-load/{file_id}`
+- `GET /api/v1/storage/database-move/candidates`
+- `POST /api/v1/storage/database-move`
+- `GET /api/v1/export/normalized/{file_id}`
+- `GET /api/v1/export/normalized/{file_id}/csv`
 - `GET /api/v1/contracts/version`
 
 ## 7) Project Structure (Current)

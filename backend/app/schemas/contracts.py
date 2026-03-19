@@ -136,6 +136,36 @@ class MappingSummaryResponse(BaseModel):
     by_source: list[MappingBySourceItem]
 
 
+class EpaacDictionaryItem(BaseModel):
+    iid: str
+    sid: str
+    label_de: str
+    label_en: str
+
+
+class EpaacDictionaryResponse(BaseModel):
+    items: list[EpaacDictionaryItem]
+    total_loaded: int
+
+
+class EpaacCoverageExample(BaseModel):
+    code: str
+    iid: str
+    sid: str
+    label_en: str
+
+
+class EpaacCoverageResponse(BaseModel):
+    file_id: str
+    source_id: str
+    total_dictionary_items: int
+    unique_codes_seen: int
+    matched_codes: int
+    coverage_percent: int
+    examples: list[EpaacCoverageExample]
+    notes: list[str]
+
+
 class MappingAlertItem(BaseModel):
     id: str
     severity: Literal["high", "medium", "low"]
@@ -430,4 +460,64 @@ class StorageSqlLoadResponse(BaseModel):
     db_path: str | None = None
     persisted: bool
     issues: list[StorageValidationIssue]
+    notes: list[str]
+
+
+class ExportNormalizedResponse(BaseModel):
+    file_id: str
+    source_id: str
+    kind: str
+    rows_count: int
+    columns: list[str]
+    rows: list[dict]
+    notes: list[str]
+
+
+class DatabaseMoveCandidate(BaseModel):
+    file_id: str
+    file_name: str
+    source_id: str
+    quality_status: str
+    mapping_status: str
+    rows_attempted: int
+    rows_inserted: int
+    schema_conformance_percent: int
+    high_issues: int
+    medium_issues: int
+    low_issues: int
+    ready_for_database_move: bool
+    reason: str
+    target_table: str | None = None
+    issues: list[StorageValidationIssue]
+
+
+class DatabaseMoveCandidatesResponse(BaseModel):
+    total_files_checked: int
+    ready_count: int
+    review_needed_count: int
+    moved_count: int
+    failed_move_count: int
+    auto_move_enabled: bool
+    candidates: list[DatabaseMoveCandidate]
+    notes: list[str]
+
+
+class DatabaseMoveRequest(BaseModel):
+    file_ids: list[str] = Field(default_factory=list)
+    move_all_ready: bool = False
+    clear_table_before_insert: bool = False
+
+
+class DatabaseMoveResultItem(BaseModel):
+    file_id: str
+    moved: bool
+    rows_inserted: int
+    reason: str
+
+
+class DatabaseMoveResponse(BaseModel):
+    requested_file_ids: list[str]
+    moved_count: int
+    failed_move_count: int
+    results: list[DatabaseMoveResultItem]
     notes: list[str]

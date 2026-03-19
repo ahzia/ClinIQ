@@ -433,6 +433,12 @@ Response shape:
 - `POST /mapping/rerun`
 - `POST /mapping/route/{file_id}`
 - `POST /storage/sql-load/{file_id}`
+- `GET /storage/database-move/candidates?auto_move=false`
+- `POST /storage/database-move`
+- `GET /mapping/epaac-dictionary?iid=&sid=&limit=`
+- `GET /mapping/epaac-coverage/{file_id}`
+- `GET /export/normalized/{file_id}`
+- `GET /export/normalized/{file_id}/csv`
 
 Request body:
 ```json
@@ -483,6 +489,123 @@ Storage SQL load response (example):
   "persisted": true,
   "issues": [],
   "notes": ["..."]
+}
+```
+
+Database move candidates response (example):
+```json
+{
+  "total_files_checked": 6,
+  "ready_count": 3,
+  "review_needed_count": 3,
+  "moved_count": 0,
+  "failed_move_count": 0,
+  "auto_move_enabled": false,
+  "candidates": [
+    {
+      "file_id": "f_epaac_1",
+      "file_name": "epaAC-Data-1.csv",
+      "source_id": "assessments_epaAC",
+      "quality_status": "clean",
+      "mapping_status": "mapped",
+      "rows_attempted": 20,
+      "rows_inserted": 0,
+      "schema_conformance_percent": 100,
+      "high_issues": 0,
+      "medium_issues": 0,
+      "low_issues": 0,
+      "ready_for_database_move": true,
+      "reason": "Ready for database move.",
+      "target_table": "tbImportAcData",
+      "issues": []
+    }
+  ],
+  "notes": ["..."]
+}
+```
+
+Database move request (example):
+```json
+{
+  "file_ids": ["f_epaac_1", "f_clinic2_device"],
+  "move_all_ready": false,
+  "clear_table_before_insert": false
+}
+```
+
+Database move response (example):
+```json
+{
+  "requested_file_ids": ["f_epaac_1", "f_clinic2_device"],
+  "moved_count": 2,
+  "failed_move_count": 0,
+  "results": [
+    {
+      "file_id": "f_epaac_1",
+      "moved": true,
+      "rows_inserted": 20,
+      "reason": "Moved to database."
+    }
+  ],
+  "notes": ["Only files marked ready are moved."]
+}
+```
+
+## Ready for Database Move (UI naming rule)
+
+Use this non-technical wording in UI:
+- Tab title: `Ready for Database Move`
+- Main CTA buttons: `Move selected`, `Move all ready`
+- Toggle label: `Auto move when ready`
+
+Avoid showing "SQL" wording in primary demo UI. Keep technical names in diagnostics only.
+
+ePaAC dictionary lookup response (example):
+```json
+{
+  "items": [
+    {
+      "iid": "110",
+      "sid": "201",
+      "label_de": "Blutdruck systolisch",
+      "label_en": "Systolic blood pressure"
+    }
+  ],
+  "total_loaded": 250
+}
+```
+
+ePaAC coverage response (example):
+```json
+{
+  "file_id": "f_epaac_1",
+  "source_id": "assessments_epaAC",
+  "total_dictionary_items": 250,
+  "unique_codes_seen": 36,
+  "matched_codes": 30,
+  "coverage_percent": 83,
+  "examples": [
+    {
+      "code": "110",
+      "iid": "110",
+      "sid": "201",
+      "label_en": "Systolic blood pressure"
+    }
+  ],
+  "notes": ["Coverage compares seen IID/SID-style codes against IID-SID-ITEM.csv dictionary."]
+}
+```
+
+Normalized export JSON response (example):
+```json
+{
+  "file_id": "f_clean_labs",
+  "source_id": "labs",
+  "kind": "table",
+  "rows_count": 20,
+  "columns": ["coCaseId", "coDateTime"],
+  "rows": [{"coCaseId": "C123", "coDateTime": "2026-03-19T09:00:00"}],
+  "notes": ["Deterministic normalization applied."]
 }
 ```
 

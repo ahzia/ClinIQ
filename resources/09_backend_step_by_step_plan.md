@@ -27,11 +27,11 @@ Status labels:
 - [x] Step 13 - mapping configs (`REAL`, config-driven mapping preview)
 - [x] Step 14-17 - intelligence layer (`REAL+MEM`: step 14-16 runtime logic, step 17 memory persisted in-memory)
 - [x] Step 18-20 - quality engine (`REAL`: sample-based runtime checks + computed metrics/alerts)
-- [~] Step 21-22 - persistent storage + export (Step 21 done for SQL persistence validation path; Step 22 pending)
+- [~] Step 21-22 - persistent storage + export (Step 21 done; Step 22 now partial: JSON/CSV export done, FHIR intentionally deferred)
 - [x] AI-assisted mapping baseline (`REAL`: OpenAI-compatible provider abstraction + dual-score endpoint; requires API key for live model calls)
-- [x] Step 23 - frontend-required API surface implemented (`MIXED`: `REAL` + `REAL+MEM` + `FIXTURE`)
+- [x] Step 23 - frontend-required API surface implemented (`MIXED`: `REAL` + `REAL+MEM`, no critical fixture-only endpoints left)
 - [x] Step 24 - rerun mapping endpoint implemented (`REAL+MEM`, currently queue-stub behavior)
-- [ ] Step 25-27 - tests, demo hardening, Docker
+- [~] Step 25-27 - tests, demo hardening, Docker (smoke + demo seed/reset scripts added; full automated tests and Docker still pending)
 
 ## Status Discipline Rule (Important)
 
@@ -199,8 +199,7 @@ Why this is required:
   - `POST /api/v1/mapping/rerun`
 
 - `FIXTURE`:
-  - `GET /api/v1/sources`
-  - `GET /api/v1/mapping/summary`
+  - none (critical summary endpoints migrated to runtime calculations)
 
 ## Step 18-20 Completion Notes (Done)
 
@@ -501,6 +500,10 @@ Test evidence:
 22. Add export endpoints:
    - normalized CSV/JSON
    - optional FHIR subset export (Patient/Encounter/Observation first).
+   - status update:
+     - `GET /api/v1/export/normalized/{file_id}` implemented (`REAL`)
+     - `GET /api/v1/export/normalized/{file_id}/csv` implemented (`REAL`)
+     - FHIR export deferred by decision ("no need for FHIR for now")
 
 ## Phase 7 - API Endpoints Needed by Frontend
 

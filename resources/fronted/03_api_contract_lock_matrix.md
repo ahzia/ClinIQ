@@ -26,10 +26,16 @@ Contract status: **LOCKED** for `/api/v1`.
 | Mapping | GET | `/mapping/mapped-preview/{file_id}` | Config-mapped data preview |
 | Mapping | GET | `/mapping/hypotheses/{file_id}` | Candidate target fields per source column |
 | Mapping | GET | `/mapping/confidence/{file_id}` | Weighted confidence + routing recommendation |
+| Mapping | GET | `/mapping/epaac-dictionary` | Dictionary lookup for explainability labels |
+| Mapping | GET | `/mapping/epaac-coverage/{file_id}` | Show dictionary match coverage for epaAC-like files |
 | Mapping | POST | `/mapping/route/{file_id}` | Persist route buckets into queue workflow |
 | Mapping | GET | `/mapping/alerts` | Runtime alert list (quality/mapping checks) |
 | Mapping | POST | `/mapping/rerun` | Re-run actions |
 | Storage | POST | `/storage/sql-load/{file_id}` | SQL-schema conformance + optional sqlite load |
+| Storage | GET | `/storage/database-move/candidates` | Final review list for "Ready for Database Move" tab |
+| Storage | POST | `/storage/database-move` | Move selected/all-ready items into database |
+| Export | GET | `/export/normalized/{file_id}` | JSON export of normalized/mapped preview rows |
+| Export | GET | `/export/normalized/{file_id}/csv` | CSV export of normalized/mapped preview rows |
 | Quality | GET | `/quality/summary` | Overall quality cards |
 | Quality | GET | `/quality/by-source` | Stacked quality chart |
 | Corrections | GET | `/corrections/queue` | Review queue table |
