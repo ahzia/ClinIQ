@@ -1,0 +1,157 @@
+# Smart Health Mapping Backend
+
+Backend service for the hackathon project.
+
+Current status:
+- FastAPI app scaffold is ready
+- frontend contract endpoints are available under `/api/v1`
+- data is currently served from fixture-backed stubs for rapid frontend development
+
+## 1) Prerequisites
+
+- Python 3.11+ (recommended)
+- `pip`
+
+Optional (later):
+- PostgreSQL (for persistence once DB layer is added)
+
+## 2) Setup
+
+From project root:
+
+```bash
+cd "Project/code/backend"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## 3) Environment
+
+Create `.env` from the example:
+
+```bash
+cp .env.example .env
+```
+
+Current variables:
+
+- `APP_NAME` (default: `Smart Health Mapping Backend`)
+- `APP_ENV` (default: `dev`)
+- `APP_VERSION` (default: `0.1.0`)
+- `API_PREFIX` (default: `/api/v1`)
+
+## 4) Run the Backend
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Server:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- API base: `http://localhost:8000/api/v1`
+
+## 5) Quick API Smoke Test
+
+Health check:
+
+```bash
+curl "http://localhost:8000/api/v1/health"
+```
+
+Contract version:
+
+```bash
+curl "http://localhost:8000/api/v1/contracts/version"
+```
+
+Sources:
+
+```bash
+curl "http://localhost:8000/api/v1/sources"
+```
+
+Corrections queue:
+
+```bash
+curl "http://localhost:8000/api/v1/corrections/queue"
+```
+
+Approve a correction:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/corrections/c_001/approve" \
+  -H "Content-Type: application/json" \
+  -d '{"comment":"Looks good","apply_as_rule":true}'
+```
+
+Re-run mapping:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/mapping/rerun" \
+  -H "Content-Type: application/json" \
+  -d '{"scope":"all","file_id":null,"source_id":null}'
+```
+
+Upload a file:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
+  -F "file=@epaCC-START-Hack-2026/Endtestdaten_ohne_Fehler_ einheitliche ID/synthetic_cases_icd10_ops.csv"
+```
+
+## 6) Current Important Endpoints
+
+- `GET /api/v1/health`
+- `POST /api/v1/ingest/upload`
+- `GET /api/v1/sources`
+- `GET /api/v1/files`
+- `GET /api/v1/files/{file_id}`
+- `GET /api/v1/files/{file_id}/preview`
+- `GET /api/v1/mapping/summary`
+- `GET /api/v1/mapping/alerts`
+- `POST /api/v1/mapping/rerun`
+- `GET /api/v1/quality/summary`
+- `GET /api/v1/quality/by-source`
+- `GET /api/v1/corrections/queue`
+- `POST /api/v1/corrections/{correction_id}/approve`
+- `POST /api/v1/corrections/{correction_id}/reject`
+- `PATCH /api/v1/corrections/{correction_id}`
+- `GET /api/v1/meta/enums`
+- `GET /api/v1/contracts/version`
+
+## 7) Project Structure (Current)
+
+```text
+backend/
+  app/
+    api/
+      health.py
+      ingest.py
+      frontend_stub.py
+    core/
+      settings.py
+      fixtures.py
+      stub_store.py
+    schemas/
+      contracts.py
+    main.py
+  configs/
+    fixtures/
+  data/
+    raw/
+    processed/
+  epaCC-START-Hack-2026/
+  requirements.txt
+  .env.example
+```
+
+## 8) Notes
+
+- `/api/v1` contract is locked for frontend integration.
+- Internals will move from fixture-backed responses to real processing logic without breaking response shapes.
+- Frontend documentation is under:
+  - `Project/resources/fronted/01_frontend_requirements_and_api_contract.md`
+  - `Project/resources/fronted/03_api_contract_lock_matrix.md`
+

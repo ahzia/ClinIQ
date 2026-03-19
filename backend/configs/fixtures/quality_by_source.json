@@ -1,0 +1,41 @@
+{
+  "items": [
+    {
+      "source_id": "nursing_reports",
+      "clean_percent": 62,
+      "missing_percent": 23,
+      "incorrect_percent": 15
+    },
+    {
+      "source_id": "assessments_epaAC",
+      "clean_percent": 58,
+      "missing_percent": 21,
+      "incorrect_percent": 21
+    },
+    {
+      "source_id": "labs",
+      "clean_percent": 84,
+      "missing_percent": 9,
+      "incorrect_percent": 7
+    },
+    {
+      "source_id": "medication",
+      "clean_percent": 79,
+      "missing_percent": 12,
+      "incorrect_percent": 9
+    },
+    {
+      "source_id": "device_motion",
+      "clean_percent": 88,
+      "missing_percent": 6,
+      "incorrect_percent": 6
+    },
+    {
+      "source_id": "diagnoses_icd_ops",
+      "clean_percent": 76,
+      "missing_percent": 11,
+      "incorrect_percent": 13
+    }
+  ]
+}
+

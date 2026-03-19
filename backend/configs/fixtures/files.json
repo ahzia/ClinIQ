@@ -1,0 +1,72 @@
+{
+  "files": [
+    {
+      "id": "f_clean_icd_ops",
+      "name": "synthetic_cases_icd10_ops.csv",
+      "source_id": "diagnoses_icd_ops",
+      "format": "csv",
+      "status": "imported",
+      "mapping_status": "mapped",
+      "quality_status": "clean",
+      "rows_estimate": 50
+    },
+    {
+      "id": "f_clean_labs",
+      "name": "synth_labs_1000_cases.csv",
+      "source_id": "labs",
+      "format": "csv",
+      "status": "imported",
+      "mapping_status": "mapped_with_warnings",
+      "quality_status": "mixed",
+      "rows_estimate": 1005
+    },
+    {
+      "id": "f_epaac_1",
+      "name": "epaAC-Data-1.csv",
+      "source_id": "assessments_epaAC",
+      "format": "csv",
+      "status": "imported",
+      "mapping_status": "needs_review",
+      "quality_status": "mixed",
+      "rows_estimate": 997
+    },
+    {
+      "id": "f_clinic2_device",
+      "name": "clinic_2_device.csv",
+      "source_id": "device_motion",
+      "format": "csv",
+      "status": "imported",
+      "mapping_status": "mapped_with_warnings",
+      "quality_status": "mixed",
+      "rows_estimate": 4079
+    },
+    {
+      "id": "f_clinic3_header_broken",
+      "name": "clinic_3_labs.csv",
+      "source_id": "labs",
+      "format": "csv",
+      "status": "imported",
+      "mapping_status": "failed",
+      "quality_status": "unknown",
+      "rows_estimate": 24
+    },
+    {
+      "id": "f_pdf_nursing",
+      "name": "clinic_4_nursing.pdf",
+      "source_id": "nursing_reports",
+      "format": "pdf",
+      "status": "imported",
+      "mapping_status": "needs_review",
+      "quality_status": "mixed",
+      "rows_estimate": 10
+    }
+  ],
+  "summary": {
+    "imported_files": 6,
+    "successful_mappings": 3,
+    "mappings_with_warnings": 1,
+    "failed_mappings": 1,
+    "needs_review": 2
+  }
+}
+

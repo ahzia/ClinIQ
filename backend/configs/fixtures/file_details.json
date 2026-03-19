@@ -1,0 +1,34 @@
+{
+  "file": {
+    "id": "f_placeholder",
+    "name": "synthetic_cases_icd10_ops.csv",
+    "path": "epaCC-START-Hack-2026/Endtestdaten_ohne_Fehler_ einheitliche ID/synthetic_cases_icd10_ops.csv",
+    "format": "csv",
+    "source_id": "diagnoses_icd_ops",
+    "imported_at": "2026-03-19T10:22:00Z",
+    "status": "imported"
+  },
+  "inference": {
+    "delimiter": ",",
+    "encoding": "utf-8",
+    "header_confidence": 0.98,
+    "detected_schema_variant": "canonical"
+  },
+  "mapping": {
+    "status": "mapped",
+    "auto_mapped_fields": 12,
+    "needs_review_fields": 0,
+    "confidence_overview": {
+      "high": 12,
+      "medium": 0,
+      "low": 0
+    }
+  },
+  "quality": {
+    "status": "clean",
+    "missing_required_keys": 0,
+    "anomalies": 0,
+    "notes": []
+  }
+}
+

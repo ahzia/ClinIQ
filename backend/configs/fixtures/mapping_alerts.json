@@ -1,0 +1,32 @@
+{
+  "alerts": [
+    {
+      "id": "a_header_corruption",
+      "severity": "high",
+      "file_id": "f_clinic3_header_broken",
+      "source_id": "labs",
+      "type": "header_corruption",
+      "message": "First row looks like data; header likely missing (clinic_3 variant).",
+      "action": "Send to manual review or apply header recovery heuristic."
+    },
+    {
+      "id": "a_delimiter_mismatch",
+      "severity": "medium",
+      "file_id": "f_epaac_1",
+      "source_id": "assessments_epaAC",
+      "type": "delimiter_detected",
+      "message": "Detected ';' delimiter and empty FallID; join key needs review.",
+      "action": "Verify join strategy for epaAC-Data-1 format."
+    },
+    {
+      "id": "a_generic_headers",
+      "severity": "medium",
+      "file_id": "f_pdf_nursing",
+      "source_id": "nursing_reports",
+      "type": "unstructured_source",
+      "message": "PDF extraction required; structured fields must be inferred from text blocks.",
+      "action": "Run PDF extractor and map to canonical nursing fields."
+    }
+  ]
+}
+

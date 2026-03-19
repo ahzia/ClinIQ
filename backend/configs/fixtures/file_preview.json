@@ -1,0 +1,37 @@
+{
+  "file_id": "f_placeholder",
+  "kind": "table",
+  "columns": [
+    "case_id",
+    "patient_id",
+    "ward",
+    "admission_date",
+    "discharge_date",
+    "primary_icd10_code",
+    "ops_codes"
+  ],
+  "rows": [
+    {
+      "case_id": "CASE-001",
+      "patient_id": "PAT-7177",
+      "ward": "Pneumologie",
+      "admission_date": "2026-02-10",
+      "discharge_date": "2026-02-11",
+      "primary_icd10_code": "J44.1",
+      "ops_codes": "8-98f.0"
+    },
+    {
+      "case_id": "CASE-002",
+      "patient_id": "PAT-8761",
+      "ward": "Geriatrie",
+      "admission_date": "2026-02-08",
+      "discharge_date": "2026-02-10",
+      "primary_icd10_code": "I50.1",
+      "ops_codes": "8-550.1"
+    }
+  ],
+  "notes": [
+    "Preview is stubbed from real dataset shapes; backend will later stream true preview."
+  ]
+}
+

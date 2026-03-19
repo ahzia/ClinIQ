@@ -1,0 +1,14 @@
+{
+  "summary": {
+    "overall_quality_score": 82,
+    "clean_percent": 71,
+    "missing_percent": 16,
+    "incorrect_percent": 13
+  },
+  "kpis": {
+    "files_with_missing_required_ids": 3,
+    "files_with_schema_drift": 4,
+    "files_with_value_anomalies": 5
+  }
+}
+

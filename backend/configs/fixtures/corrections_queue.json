@@ -1,0 +1,40 @@
+{
+  "queue": [
+    {
+      "id": "c_001",
+      "file_id": "f_epaac_1",
+      "source_id": "assessments_epaAC",
+      "source_field": "FallID",
+      "suggested_target": "case_id",
+      "confidence": 0.54,
+      "status": "pending_review",
+      "reason": "Low confidence due to sparse values in source column."
+    },
+    {
+      "id": "c_002",
+      "file_id": "f_clinic2_device",
+      "source_id": "device_motion",
+      "source_field": "idx_mov",
+      "suggested_target": "movement_index_0_100",
+      "confidence": 0.78,
+      "status": "pending_review",
+      "reason": "Name mismatch but value distribution appears compatible."
+    },
+    {
+      "id": "c_003",
+      "file_id": "f_pdf_nursing",
+      "source_id": "nursing_reports",
+      "source_field": "Report block text",
+      "suggested_target": "nursing_note_free_text",
+      "confidence": 0.67,
+      "status": "pending_review",
+      "reason": "PDF extraction confidence medium; requires human verification."
+    }
+  ],
+  "summary": {
+    "pending_review": 3,
+    "accepted_today": 2,
+    "rejected_today": 1
+  }
+}
+

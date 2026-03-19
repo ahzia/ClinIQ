@@ -1,0 +1,42 @@
+{
+  "summary": {
+    "total_fields_seen": 420,
+    "auto_mapped": 310,
+    "mapped_with_warning": 65,
+    "needs_review": 35,
+    "failed": 10
+  },
+  "by_source": [
+    {
+      "source_id": "labs",
+      "auto_mapped": 120,
+      "needs_review": 10,
+      "failed": 2
+    },
+    {
+      "source_id": "medication",
+      "auto_mapped": 85,
+      "needs_review": 8,
+      "failed": 1
+    },
+    {
+      "source_id": "assessments_epaAC",
+      "auto_mapped": 40,
+      "needs_review": 15,
+      "failed": 6
+    },
+    {
+      "source_id": "nursing_reports",
+      "auto_mapped": 15,
+      "needs_review": 2,
+      "failed": 1
+    },
+    {
+      "source_id": "device_motion",
+      "auto_mapped": 50,
+      "needs_review": 0,
+      "failed": 0
+    }
+  ]
+}
+

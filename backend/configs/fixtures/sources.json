@@ -1,0 +1,54 @@
+{
+  "sources": [
+    {
+      "id": "assessments_epaAC",
+      "label": "Care Assessments (epaAC)",
+      "file_count": 9,
+      "formats": ["csv"],
+      "notes": "Multiple header schemas (epaAC-Data-1/2/3/5) with ';' delimiter variants"
+    },
+    {
+      "id": "diagnoses_icd_ops",
+      "label": "Diagnoses & Procedures (ICD10/OPS)",
+      "file_count": 6,
+      "formats": ["csv", "xlsx"],
+      "notes": "ICD-10 and OPS codes; clean + error-injected variants"
+    },
+    {
+      "id": "labs",
+      "label": "Lab Parameters",
+      "file_count": 8,
+      "formats": ["csv", "xlsx"],
+      "notes": "Wide lab panel with flags + ref ranges; clean + error-injected variants"
+    },
+    {
+      "id": "medication",
+      "label": "Medication Plans (Inpatient)",
+      "file_count": 8,
+      "formats": ["csv", "xlsx"],
+      "notes": "record_type=ORDER/CHANGE/ADMIN; time-series like administrations"
+    },
+    {
+      "id": "device_motion",
+      "label": "Sensor Motion / Fall (hourly + 1Hz)",
+      "file_count": 12,
+      "formats": ["csv", "xlsx"],
+      "notes": "Time-series; altered clinic exports include renamed/generic headers"
+    },
+    {
+      "id": "nursing_reports",
+      "label": "Nursing Reports (Daily Notes)",
+      "file_count": 6,
+      "formats": ["csv", "pdf", "xlsx"],
+      "notes": "CSV free-text + one PDF bundle; altered clinic exports include shortened headers"
+    }
+  ],
+  "totals": {
+    "files_seen": 60,
+    "csv": 43,
+    "xlsx": 12,
+    "pdf": 1,
+    "docs": 4
+  }
+}
+
