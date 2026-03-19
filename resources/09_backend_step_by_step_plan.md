@@ -27,7 +27,7 @@ Status labels:
 - [x] Step 13 - mapping configs (`REAL`, config-driven mapping preview)
 - [x] Step 14-17 - intelligence layer (`REAL+MEM`: step 14-16 runtime logic, step 17 memory persisted in-memory)
 - [x] Step 18-20 - quality engine (`REAL`: sample-based runtime checks + computed metrics/alerts)
-- [ ] Step 21-22 - persistent storage + export
+- [~] Step 21-22 - persistent storage + export (Step 21 done for SQL persistence validation path; Step 22 pending)
 - [x] Step 23 - frontend-required API surface implemented (`MIXED`: `REAL` + `REAL+MEM` + `FIXTURE`)
 - [x] Step 24 - rerun mapping endpoint implemented (`REAL+MEM`, currently queue-stub behavior)
 - [ ] Step 25-27 - tests, demo hardening, Docker
@@ -184,6 +184,7 @@ Why this is required:
   - `GET /api/v1/quality/summary`
   - `GET /api/v1/quality/by-source`
   - `GET /api/v1/meta/runtime-config`
+  - `POST /api/v1/storage/sql-load/{file_id}`
   - request logging + `X-Request-ID` middleware
 
 - `REAL+MEM`:
@@ -229,6 +230,33 @@ Test evidence:
   - `duplicate_composite_key`, `missing_required_ids`, `schema_drift`, `value_pattern_anomaly`
 - `GET /meta/runtime-config` returned:
   - `case_link_window_hours=6`
+
+## Step 21 Completion Notes (Done)
+
+- Added SQL schema conformance + persistence validation module:
+  - `app/storage/sql_conformance.py`
+- Schema source of truth:
+  - parses `epaCC-START-Hack-2026/DB/CreateImportTables.sql`
+- Added runtime endpoint:
+  - `POST /api/v1/storage/sql-load/{file_id}`
+- Runtime behavior:
+  - computes auto-mapped fields from confidence output
+  - maps auto targets to SQL-table columns by source type
+  - validates mapped SQL columns against parsed SQL schema table
+  - inserts sampled mapped rows into persistent sqlite DB:
+    - default path: `backend/data/processed/harmonized.sqlite`
+- Added config:
+  - `PROCESSED_DB_PATH` (default `data/processed/harmonized.sqlite`)
+
+Test evidence:
+- `POST /storage/sql-load/f_clinic2_device` returned:
+  - `target_table=tbImportDeviceMotionData`
+  - `schema_conformance_percent=100`
+  - `rows_attempted=20`, `rows_inserted=20`, `rows_failed=0`
+- Verified DB persistence:
+  - sqlite file exists at `data/processed/harmonized.sqlite`
+  - table row count check: `tbImportDeviceMotionData_rows=20`
+- `POST /storage/sql-load/f_epaac_1` in validation mode also completed without endpoint errors.
 
 ## Step 12 Completion Notes (Done)
 

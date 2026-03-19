@@ -36,10 +36,13 @@ from app.schemas.contracts import (
     MappingSummaryResponse,
     NormalizePreviewResponse,
     RuntimeConfigResponse,
+    StorageSqlLoadRequest,
+    StorageSqlLoadResponse,
     QualityBySourceResponse,
     QualitySummaryResponse,
     SourcesResponse,
 )
+from app.storage.sql_conformance import validate_and_persist_auto_mapped_rows
 
 router = APIRouter(tags=["frontend-stub"])
 
@@ -398,6 +401,57 @@ def mapping_route(file_id: str, payload: MappingRouteRequest) -> MappingRouteRes
     }
 
 
+@router.post("/storage/sql-load/{file_id}", response_model=StorageSqlLoadResponse)
+def storage_sql_load(file_id: str, payload: StorageSqlLoadRequest) -> StorageSqlLoadResponse:
+    path = stub_store.get_file_path(file_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    details = stub_store.get_file_details(file_id)
+    source_id = details["file"]["source_id"]
+    kind, columns, rows, _ = parse_file_preview(path)
+    if kind != "table":
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "target_table": None,
+            "auto_fields_seen": 0,
+            "auto_fields_sql_mapped": 0,
+            "schema_conformance_percent": 0,
+            "rows_attempted": 0,
+            "rows_inserted": 0,
+            "rows_failed": 0,
+            "db_path": None,
+            "persisted": False,
+            "issues": [
+                {
+                    "severity": "high",
+                    "code": "unsupported_kind",
+                    "message": "SQL load currently supports table-like files only.",
+                }
+            ],
+            "notes": ["No SQL load attempted for non-table preview kind."],
+        }
+
+    conf = score_mapping_confidence(
+        source_id=source_id,
+        columns=columns,
+        rows=rows,
+        accepted_targets=stub_store.accepted_target_counts(),
+        correction_memory=stub_store.correction_memory_for_source(source_id),
+    )
+    result = validate_and_persist_auto_mapped_rows(
+        file_id=file_id,
+        source_id=source_id,
+        rows=rows,
+        confidence_results=conf["results"],
+        processed_db_path=settings.processed_db_path,
+        clear_table_before_insert=payload.clear_table_before_insert,
+        persist=payload.persist,
+    )
+    return result
+
+
 @router.get("/mapping/alerts", response_model=MappingAlertsResponse)
 def mapping_alerts() -> MappingAlertsResponse:
     _, _, alerts_payload = _compute_quality_payloads()
@@ -498,6 +552,7 @@ def get_runtime_config() -> RuntimeConfigResponse:
     return {
         "case_link_window_hours": settings.case_link_window_hours,
         "identity_conflict_high_threshold": settings.identity_conflict_high_threshold,
+        "processed_db_path": settings.processed_db_path,
     }
 
 
@@ -505,7 +560,7 @@ def get_runtime_config() -> RuntimeConfigResponse:
 def contract_version() -> ContractVersionResponse:
     return {
         "api_version": "v1",
-        "contract_version": "2026-03-19.3",
+        "contract_version": "2026-03-19.4",
         "stability": "locked",
         "breaking_change_policy": "No breaking changes in /api/v1; use /api/v2 for contract-breaking updates.",
     }

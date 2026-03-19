@@ -247,6 +247,7 @@ class ContractVersionResponse(BaseModel):
 class RuntimeConfigResponse(BaseModel):
     case_link_window_hours: int
     identity_conflict_high_threshold: int
+    processed_db_path: str
 
 
 class CanonicalEntity(BaseModel):
@@ -372,4 +373,31 @@ class MappingRouteResponse(BaseModel):
     warning_count: int
     manual_review_count: int
     queued_items_added: int
+    notes: list[str]
+
+
+class StorageSqlLoadRequest(BaseModel):
+    persist: bool = True
+    clear_table_before_insert: bool = False
+
+
+class StorageValidationIssue(BaseModel):
+    severity: Literal["high", "medium", "low"]
+    code: str
+    message: str
+
+
+class StorageSqlLoadResponse(BaseModel):
+    file_id: str
+    source_id: str
+    target_table: str | None = None
+    auto_fields_seen: int
+    auto_fields_sql_mapped: int
+    schema_conformance_percent: int
+    rows_attempted: int
+    rows_inserted: int
+    rows_failed: int
+    db_path: str | None = None
+    persisted: bool
+    issues: list[StorageValidationIssue]
     notes: list[str]

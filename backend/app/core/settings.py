@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     case_link_window_hours: int = 6
     identity_conflict_high_threshold: int = 2
+    processed_db_path: str = "data/processed/harmonized.sqlite"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

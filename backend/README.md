@@ -43,6 +43,7 @@ Current variables:
 - `API_PREFIX` (default: `/api/v1`)
 - `CASE_LINK_WINDOW_HOURS` (default: `6`)
 - `IDENTITY_CONFLICT_HIGH_THRESHOLD` (default: `2`)
+- `PROCESSED_DB_PATH` (default: `data/processed/harmonized.sqlite`)
 
 ## 4) Run the Backend
 
@@ -85,6 +86,14 @@ Runtime config (identity-link defaults):
 
 ```bash
 curl "http://localhost:8000/api/v1/meta/runtime-config"
+```
+
+Validate + load auto-mapped rows into SQL-compatible sqlite table:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/storage/sql-load/f_clinic2_device" \
+  -H "Content-Type: application/json" \
+  -d '{"persist":true,"clear_table_before_insert":true}'
 ```
 
 Corrections queue:
@@ -151,6 +160,7 @@ curl -X POST "http://localhost:8000/api/v1/ingest/upload" \
 - `PATCH /api/v1/corrections/{correction_id}`
 - `GET /api/v1/meta/enums`
 - `GET /api/v1/meta/runtime-config`
+- `POST /api/v1/storage/sql-load/{file_id}`
 - `GET /api/v1/contracts/version`
 
 ## 7) Project Structure (Current)

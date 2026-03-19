@@ -397,6 +397,7 @@ These endpoints are now part of the locked frontend contract:
   - Returns runtime defaults used in backend quality/linking logic:
     - `case_link_window_hours`
     - `identity_conflict_high_threshold`
+    - `processed_db_path`
 
 ## Corrections Actions (write APIs)
 - `POST /corrections/{correction_id}/approve`
@@ -425,6 +426,7 @@ Response shape:
 ## Mapping Control
 - `POST /mapping/rerun`
 - `POST /mapping/route/{file_id}`
+- `POST /storage/sql-load/{file_id}`
 
 Request body:
 ```json
@@ -448,6 +450,33 @@ Response:
   "scope": "all",
   "file_id": null,
   "source_id": null
+}
+```
+
+Storage SQL load request:
+```json
+{
+  "persist": true,
+  "clear_table_before_insert": false
+}
+```
+
+Storage SQL load response (example):
+```json
+{
+  "file_id": "f_clinic2_device",
+  "source_id": "device_motion",
+  "target_table": "tbImportDeviceMotionData",
+  "auto_fields_seen": 1,
+  "auto_fields_sql_mapped": 1,
+  "schema_conformance_percent": 100,
+  "rows_attempted": 20,
+  "rows_inserted": 20,
+  "rows_failed": 0,
+  "db_path": "/abs/path/backend/data/processed/harmonized.sqlite",
+  "persisted": true,
+  "issues": [],
+  "notes": ["..."]
 }
 ```
 

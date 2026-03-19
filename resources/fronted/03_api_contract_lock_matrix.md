@@ -29,6 +29,7 @@ Contract status: **LOCKED** for `/api/v1`.
 | Mapping | POST | `/mapping/route/{file_id}` | Persist route buckets into queue workflow |
 | Mapping | GET | `/mapping/alerts` | Runtime alert list (quality/mapping checks) |
 | Mapping | POST | `/mapping/rerun` | Re-run actions |
+| Storage | POST | `/storage/sql-load/{file_id}` | SQL-schema conformance + optional sqlite load |
 | Quality | GET | `/quality/summary` | Overall quality cards |
 | Quality | GET | `/quality/by-source` | Stacked quality chart |
 | Corrections | GET | `/corrections/queue` | Review queue table |
