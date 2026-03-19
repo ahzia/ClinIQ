@@ -154,6 +154,9 @@ export default function MappingPanel({
   const [selectedCanonicalId, setSelectedCanonicalId] = useState<string | null>(null);
   const [canonicalExpanded, setCanonicalExpanded] = useState(false);
   const [alertsExpanded, setAlertsExpanded] = useState(false);
+  const [alertFilter, setAlertFilter] = useState<
+    "all" | "high" | "needs_review" | "identity"
+  >("all");
 
   useEffect(() => {
     let mounted = true;
@@ -256,7 +259,35 @@ export default function MappingPanel({
 
   const max = summary?.summary.total_fields_seen ?? 0;
   const allAlerts = alerts?.alerts ?? [];
-  const visibleAlerts = alertsExpanded ? allAlerts : allAlerts.slice(0, 4);
+
+  const prioritizedAlerts = useMemo(() => {
+    const sevRank: Record<MappingAlertItem["severity"], number> = {
+      high: 0,
+      medium: 1,
+      low: 2,
+    };
+    return [...allAlerts].sort((a, b) => sevRank[a.severity] - sevRank[b.severity]);
+  }, [allAlerts]);
+
+  const filteredAlerts = useMemo(() => {
+    if (alertFilter === "high") {
+      return prioritizedAlerts.filter((a) => a.severity === "high");
+    }
+    if (alertFilter === "needs_review") {
+      return prioritizedAlerts.filter((a) =>
+        `${a.type} ${a.message} ${a.action}`.toLowerCase().includes("review")
+      );
+    }
+    if (alertFilter === "identity") {
+      return prioritizedAlerts.filter((a) => {
+        const hay = `${a.type} ${a.message}`.toLowerCase();
+        return hay.includes("id_conflict") || hay.includes("unresolved_case_link");
+      });
+    }
+    return prioritizedAlerts;
+  }, [prioritizedAlerts, alertFilter]);
+
+  const visibleAlerts = alertsExpanded ? filteredAlerts : filteredAlerts.slice(0, 4);
   const showAlertsToggle = allAlerts.length > 4;
 
   return (
@@ -412,7 +443,7 @@ export default function MappingPanel({
                       onChange={(e) =>
                         setScope(e.target.value as MappingRerunRequest["scope"])
                       }
-                      className="mt-2 rounded-2xl bg-white/5 p-3 text-sm ring-1 ring-white/10 outline-none"
+                      className="select-premium mt-2 p-3 text-sm text-zinc-100"
                     >
                       <option value="all">All data</option>
                       <option value="file">Selected file</option>
@@ -451,11 +482,68 @@ export default function MappingPanel({
               </div>
 
               <div className="mt-6">
-                <div className="text-sm font-semibold text-zinc-100">
-                  Mapping alerts
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    Mapping alerts
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAlertFilter("all")}
+                    className="rounded-2xl bg-white/5 px-3 py-2 text-xs font-semibold text-cyan-200 ring-1 ring-white/10 hover:bg-white/10"
+                  >
+                    Reset filter
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <StatusPill
+                    tone="bad"
+                    text={`High ${allAlerts.filter((a) => a.severity === "high").length}`}
+                  />
+                  <StatusPill
+                    tone="warn"
+                    text={`Medium ${allAlerts.filter((a) => a.severity === "medium").length}`}
+                  />
+                  <StatusPill
+                    tone="neutral"
+                    text={`Low ${allAlerts.filter((a) => a.severity === "low").length}`}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    { id: "all", label: `All (${allAlerts.length})` },
+                    {
+                      id: "high",
+                      label: `High (${allAlerts.filter((a) => a.severity === "high").length})`,
+                    },
+                    {
+                      id: "needs_review",
+                      label: "Needs review",
+                    },
+                    {
+                      id: "identity",
+                      label: "Identity/linking",
+                    },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() =>
+                        setAlertFilter(
+                          f.id as "all" | "high" | "needs_review" | "identity"
+                        )
+                      }
+                      className={`rounded-2xl px-3 py-2 text-xs font-semibold ring-1 transition ${
+                        alertFilter === f.id
+                          ? "bg-white/10 text-zinc-100 ring-white/20"
+                          : "bg-white/5 text-zinc-300 ring-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
                 </div>
                 <div className="mt-3 space-y-3">
-                  {allAlerts.length ? (
+                  {filteredAlerts.length ? (
                     visibleAlerts.map((a, i) => (
                       <motion.div
                         key={a.id}
@@ -497,11 +585,11 @@ export default function MappingPanel({
                     ))
                   ) : (
                     <div className="rounded-2xl bg-white/5 p-4 text-sm text-zinc-400 ring-1 ring-white/10">
-                      No mapping alerts right now.
+                      No alerts for this filter.
                     </div>
                   )}
 
-                  {showAlertsToggle ? (
+                  {showAlertsToggle && filteredAlerts.length > 4 ? (
                     <motion.button
                       type="button"
                       onClick={() => setAlertsExpanded((v) => !v)}
@@ -515,6 +603,17 @@ export default function MappingPanel({
               </div>
 
               <div className="mt-6">
+                <div className="mb-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    Linking strategy
+                  </div>
+                  <div className="mt-2 text-xs text-zinc-400">
+                    Primary link uses <span className="font-semibold text-zinc-200">case_id</span>.
+                    Fallback uses <span className="font-semibold text-zinc-200">patient_id + datetime window</span>.
+                    Low-confidence links should go to manual review.
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-semibold text-zinc-100">
                     Canonical model
@@ -598,7 +697,7 @@ export default function MappingPanel({
                         <select
                           value={selectedCanonicalId ?? ""}
                           onChange={(e) => setSelectedCanonicalId(e.target.value)}
-                          className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm ring-1 ring-white/10 outline-none"
+                          className="select-premium w-full px-4 py-3 text-sm text-zinc-100"
                         >
                           {filteredEntities.map((e) => (
                             <option key={e.id} value={e.id}>
