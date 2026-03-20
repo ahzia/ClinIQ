@@ -42,7 +42,11 @@ GENDER_ALIASES = {"sex", "gender", "geschlecht"}
 
 
 def _norm_key(v: str) -> str:
-    return v.strip().lower().replace("-", "_").replace(" ", "_")
+    s = re.sub(r"\(.*?\)", "", v).strip().lower()
+    s = s.replace("-", "_").replace(" ", "_").replace("/", "_")
+    s = re.sub(r"[^a-z0-9_]+", "", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    return s
 
 
 def _norm_value(v: object) -> str:

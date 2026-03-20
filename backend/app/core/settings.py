@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     ai_api_key: str | None = None
     ai_api_base_url: str = "https://api.openai.com/v1"
     ai_timeout_seconds: int = 25
+    db_move_include_warnings: bool = True
+    db_move_warning_score_threshold: float = 0.80
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

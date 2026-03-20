@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from difflib import SequenceMatcher
+import re
 
 from app.mapping.canonical_model import get_canonical_model
 from app.mapping.config_mapping import load_mapping_rules
 
 
 def _norm(s: str) -> str:
-    return s.strip().lower().replace("-", "_").replace(" ", "_")
+    base = re.sub(r"\(.*?\)", "", s).strip().lower()
+    base = base.replace("-", "_").replace(" ", "_").replace("/", "_")
+    base = re.sub(r"[^a-z0-9_]+", "", base)
+    base = re.sub(r"_+", "_", base).strip("_")
+    return base
 
 
 def _ratio(a: str, b: str) -> float:

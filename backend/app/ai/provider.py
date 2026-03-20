@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -129,14 +130,31 @@ class AiProvider:
                 "Authorization": f"Bearer {settings.ai_api_key}",
             },
         )
-        try:
-            with urlopen(req, timeout=settings.ai_timeout_seconds) as res:
-                raw = res.read().decode("utf-8", errors="replace")
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"HTTP {exc.code}: {detail}")
-        except URLError as exc:
-            raise RuntimeError(f"Network error: {exc}")
+        last_error: Exception | None = None
+        for attempt in range(2):
+            try:
+                with urlopen(req, timeout=settings.ai_timeout_seconds) as res:
+                    raw = res.read().decode("utf-8", errors="replace")
+                break
+            except HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                # Retry once for transient upstream errors/rate limits.
+                if attempt == 0 and exc.code in {408, 429, 500, 502, 503, 504}:
+                    last_error = RuntimeError(f"HTTP {exc.code}: {detail}")
+                    time.sleep(0.5)
+                    continue
+                raise RuntimeError(f"HTTP {exc.code}: {detail}")
+            except URLError as exc:
+                # Retry once for transient network/read-timeout failures.
+                if attempt == 0:
+                    last_error = RuntimeError(f"Network error: {exc}")
+                    time.sleep(0.5)
+                    continue
+                raise RuntimeError(f"Network error: {exc}")
+        else:
+            if last_error is not None:
+                raise last_error
+            raise RuntimeError("AI provider request failed without details.")
         payload = json.loads(raw)
         choices = payload.get("choices", [])
         if not choices:

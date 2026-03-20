@@ -209,6 +209,20 @@ class QualityBySourceResponse(BaseModel):
     items: list[QualityBySourceItem]
 
 
+class QualityByFileItem(BaseModel):
+    file_id: str
+    file_name: str
+    source_id: str
+    clean_percent: int
+    missing_percent: int
+    incorrect_percent: int
+    parse_status: Literal["ok", "failed"]
+
+
+class QualityByFileResponse(BaseModel):
+    items: list[QualityByFileItem]
+
+
 class CorrectionItem(BaseModel):
     id: str
     file_id: str

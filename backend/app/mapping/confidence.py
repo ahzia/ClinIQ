@@ -109,9 +109,9 @@ def _history_score(target: str, accepted_targets: dict[str, int]) -> float:
 
 
 def _route(score: float) -> str:
-    if score >= 0.85:
+    if score >= 0.75:
         return "auto"
-    if score >= 0.60:
+    if score >= 0.65:
         return "warning"
     return "manual_review"
 
@@ -164,6 +164,11 @@ def score_mapping_confidence(
             0.35 * semantic + 0.30 * value_score + 0.20 * cross_score + 0.15 * history,
             4,
         )
+        top_signal = str(top.get("signal", ""))
+        # Config-exact / learned-memory matches are strong priors and should not
+        # be held back by generic priors on first runs.
+        if top_signal in {"config_exact", "correction_memory"} and value_score >= 0.5:
+            final_score = max(final_score, 0.9)
 
         results.append(
             {
@@ -192,6 +197,6 @@ def score_mapping_confidence(
         "route_summary": route_counts,
         "notes": [
             "Final score weights: semantic=0.35, value=0.30, cross=0.20, history=0.15.",
-            "Thresholds: auto>=0.85, warning>=0.60, else manual_review.",
+            "Thresholds: auto>=0.75, warning>=0.65, else manual_review.",
         ],
     }

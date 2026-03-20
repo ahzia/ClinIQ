@@ -34,11 +34,25 @@ def _parse_csv(path: Path) -> tuple[list[str], list[dict], list[str]]:
     sample = decoded[:10000]
     notes: list[str] = []
     delimiter = ","
-    try:
-        dialect = csv.Sniffer().sniff(sample, delimiters=",;|\t")
-        delimiter = dialect.delimiter
-    except csv.Error:
-        notes.append("Delimiter sniffing failed; defaulted to comma.")
+    first_data_line = ""
+    for line in decoded.splitlines():
+        if line.strip():
+            first_data_line = line
+            break
+    if first_data_line:
+        candidates = [",", ";", "|", "\t"]
+        counts = {d: first_data_line.count(d) for d in candidates}
+        best = max(counts, key=counts.get)
+        if counts[best] > 0:
+            delimiter = best
+        else:
+            try:
+                dialect = csv.Sniffer().sniff(sample, delimiters=",;|\t")
+                delimiter = dialect.delimiter
+            except csv.Error:
+                notes.append("Delimiter sniffing failed; defaulted to comma.")
+    else:
+        notes.append("Empty CSV content; defaulted delimiter to comma.")
 
     df = pd.read_csv(path, encoding=used_encoding, sep=delimiter, nrows=200)
     columns = [str(c) for c in df.columns]

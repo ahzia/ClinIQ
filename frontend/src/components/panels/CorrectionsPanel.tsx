@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircle2,
@@ -107,7 +107,13 @@ type DialogState =
       item: CorrectionItem;
     };
 
-export default function CorrectionsPanel() {
+export default function CorrectionsPanel({
+  selectedSourceId,
+  selectedDemoLane,
+}: {
+  selectedSourceId: string | null;
+  selectedDemoLane: "all" | "error_heavy" | "expected_pass";
+}) {
   const [queue, setQueue] = useState<CorrectionsQueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,32 +129,32 @@ export default function CorrectionsPanel() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiGet<CorrectionsQueueResponse>("/corrections/queue");
+      const query = new URLSearchParams();
+      if (selectedSourceId) query.set("source_id", selectedSourceId);
+      if (selectedDemoLane !== "all") query.set("demo_lane", selectedDemoLane);
+      const suffix = query.toString() ? `?${query.toString()}` : "";
+      const res = await apiGet<CorrectionsQueueResponse>(`/corrections/queue${suffix}`);
       setQueue(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load corrections.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedSourceId, selectedDemoLane]);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   const pending = queue?.summary.pending_review ?? 0;
 
   const allQueue = queue?.queue ?? [];
   const prioritizedQueue = [...allQueue].sort((a, b) => {
-    const statusRank = (s: CorrectionItem["status"]) =>
-      s === "pending_review" ? 0 : s === "edited" ? 1 : s === "rejected" ? 2 : 3;
-    const byStatus = statusRank(a.status) - statusRank(b.status);
-    if (byStatus !== 0) return byStatus;
-    return a.confidence - b.confidence;
+    return b.confidence - a.confidence;
   });
   const filteredQueue = prioritizedQueue.filter((item) => {
     if (queueFilter === "pending_review") return item.status === "pending_review";

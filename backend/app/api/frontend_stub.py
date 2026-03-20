@@ -1,6 +1,7 @@
 import csv
 from io import StringIO
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
@@ -51,6 +52,7 @@ from app.schemas.contracts import (
     StorageSqlLoadRequest,
     StorageSqlLoadResponse,
     QualityBySourceResponse,
+    QualityByFileResponse,
     QualitySummaryResponse,
     SourcesResponse,
 )
@@ -64,6 +66,7 @@ _SOURCE_LABELS = {
     "labs": "Lab Parameters",
     "medication": "Medication Plans (Inpatient)",
     "device_motion": "Sensor Motion / Fall",
+    "device_motion_1hz": "Sensor Motion / Fall (1Hz)",
     "nursing_reports": "Nursing Reports",
 }
 
@@ -73,19 +76,65 @@ _SOURCE_NOTES = {
     "labs": "Lab panel exports with flags and reference ranges.",
     "medication": "ORDER/CHANGE/ADMIN record types with timeline values.",
     "device_motion": "Hourly + 1Hz motion/fall exports with drift variants.",
+    "device_motion_1hz": "High-frequency 1Hz motion/fall exports.",
     "nursing_reports": "Structured and free-text nursing reports.",
 }
 
 _DATABASE_MOVE_MIN_CONFORMANCE = 90
 
 
-def _compute_quality_payloads() -> tuple[dict, dict, dict]:
-    files_payload = stub_store.list_files()
+def _normalize_demo_lane(demo_lane: str | None) -> str | None:
+    if demo_lane is None:
+        return None
+    lane = demo_lane.strip().lower()
+    if lane in {"all", ""}:
+        return None
+    if lane in {"expected_pass", "expected", "clean"}:
+        return "expected_pass"
+    if lane in {"error_heavy", "error", "errors"}:
+        return "error_heavy"
+    return None
+
+
+def _file_matches_demo_lane(file_item: dict, demo_lane: str | None) -> bool:
+    lane = _normalize_demo_lane(demo_lane)
+    if lane is None:
+        return True
+    name = str(file_item.get("name", "")).lower()
+    if lane == "expected_pass":
+        return name.startswith("expected__")
+    if lane == "error_heavy":
+        return name.startswith("error__")
+    return True
+
+
+def _filtered_files(demo_lane: str | None) -> list[dict]:
+    payload = stub_store.list_files()
+    files = payload.get("files", [])
+    lane = _normalize_demo_lane(demo_lane)
+    if lane is None:
+        # Demo default: once curated lane files exist, hide legacy fixture rows
+        # so "all data" means "all demo lanes".
+        has_demo_lane_files = any(
+            str(f.get("name", "")).lower().startswith(("expected__", "error__")) for f in files
+        )
+        if has_demo_lane_files:
+            return [
+                f
+                for f in files
+                if str(f.get("name", "")).lower().startswith(("expected__", "error__"))
+            ]
+        return files
+    return [f for f in files if _file_matches_demo_lane(f, lane)]
+
+
+def _compute_quality_payloads(demo_lane: str | None = None) -> tuple[dict, dict, dict]:
+    files = _filtered_files(demo_lane)
     by_source: dict[str, list[dict]] = {}
     all_results: list[dict] = []
     alerts: list[dict] = []
 
-    for f in files_payload.get("files", []):
+    for f in files:
         file_id = f.get("id")
         if not file_id:
             continue
@@ -93,18 +142,47 @@ def _compute_quality_payloads() -> tuple[dict, dict, dict]:
         path = stub_store.get_file_path(file_id)
         if not path:
             continue
-        kind, columns, rows, _ = parse_file_preview(path)
-        if kind != "table":
-            continue
+        try:
+            kind, columns, rows, _ = parse_file_preview(path)
+            if kind != "table":
+                continue
 
-        result = evaluate_file_quality(
-            file_id=file_id,
-            source_id=source_id,
-            columns=columns,
-            rows=rows,
-            case_link_window_hours=settings.case_link_window_hours,
-            identity_conflict_high_threshold=settings.identity_conflict_high_threshold,
-        )
+            result = evaluate_file_quality(
+                file_id=file_id,
+                source_id=source_id,
+                columns=columns,
+                rows=rows,
+                case_link_window_hours=settings.case_link_window_hours,
+                identity_conflict_high_threshold=settings.identity_conflict_high_threshold,
+            )
+        except Exception as exc:
+            # Keep dashboard resilient on malformed CSVs: treat parse failure as
+            # a high-severity quality problem rather than crashing the whole page.
+            all_results.append(
+                {
+                    "missing_required_ids": True,
+                    "schema_drift": True,
+                    "value_anomalies": True,
+                    "clean_percent": 0,
+                    "missing_percent": 50,
+                    "incorrect_percent": 50,
+                }
+            )
+            by_source.setdefault(source_id, []).append(
+                {"clean_percent": 0, "missing_percent": 50, "incorrect_percent": 50}
+            )
+            alerts.append(
+                {
+                    "id": f"a_{file_id}_parse",
+                    "severity": "high",
+                    "file_id": file_id,
+                    "source_id": source_id,
+                    "type": "parse_failure",
+                    "message": f"File could not be parsed for quality checks: {exc}",
+                    "action": "Check delimiter/quoting and correct malformed rows before import.",
+                }
+            )
+            continue
         by_source.setdefault(source_id, []).append(
             {
                 "clean_percent": result.clean_percent,
@@ -185,9 +263,109 @@ def _compute_quality_payloads() -> tuple[dict, dict, dict]:
     return summary_payload, by_source_payload, alerts_payload
 
 
-def _compute_sources_payload() -> dict:
-    files_payload = stub_store.list_files()
-    files = files_payload.get("files", [])
+def _compute_quality_by_file_payload(
+    demo_lane: str | None = None, source_id: str | None = None
+) -> dict:
+    files = _filtered_files(demo_lane)
+    items: list[dict] = []
+    for f in files:
+        file_id = str(f.get("id", ""))
+        src = str(f.get("source_id", "unknown"))
+        if source_id and src != source_id:
+            continue
+        path = stub_store.get_file_path(file_id)
+        if not path:
+            continue
+        file_name = str(f.get("name", file_id))
+        try:
+            kind, columns, rows, _ = parse_file_preview(path)
+            if kind != "table":
+                continue
+            result = evaluate_file_quality(
+                file_id=file_id,
+                source_id=src,
+                columns=columns,
+                rows=rows,
+                case_link_window_hours=settings.case_link_window_hours,
+                identity_conflict_high_threshold=settings.identity_conflict_high_threshold,
+            )
+            items.append(
+                {
+                    "file_id": file_id,
+                    "file_name": file_name,
+                    "source_id": src,
+                    "clean_percent": result.clean_percent,
+                    "missing_percent": result.missing_percent,
+                    "incorrect_percent": result.incorrect_percent,
+                    "parse_status": "ok",
+                }
+            )
+        except Exception:
+            items.append(
+                {
+                    "file_id": file_id,
+                    "file_name": file_name,
+                    "source_id": src,
+                    "clean_percent": 0,
+                    "missing_percent": 50,
+                    "incorrect_percent": 50,
+                    "parse_status": "failed",
+                }
+            )
+    return {"items": items}
+
+
+def _build_live_review_queue(
+    *, demo_lane: str | None = None, source_id: str | None = None, max_items: int = 400
+) -> list[dict]:
+    files = _filtered_files(demo_lane)
+    items: list[dict] = []
+    for f in files:
+        if len(items) >= max_items:
+            break
+        file_id = str(f.get("id", ""))
+        src = str(f.get("source_id", "unknown"))
+        if source_id and src != source_id:
+            continue
+        path = stub_store.get_file_path(file_id)
+        if not path:
+            continue
+        try:
+            kind, columns, rows, _ = parse_file_preview(path)
+            if kind != "table":
+                continue
+            conf = score_mapping_confidence(
+                source_id=src,
+                columns=columns,
+                rows=rows,
+                accepted_targets=stub_store.accepted_target_counts(),
+                correction_memory=stub_store.correction_memory_for_source(src),
+            )
+            for r in conf.get("results", []):
+                route = r.get("route")
+                if route == "auto":
+                    continue
+                items.append(
+                    {
+                        "id": f"live_{file_id}_{str(r.get('source_field', 'x'))}",
+                        "file_id": file_id,
+                        "source_id": src,
+                        "source_field": str(r.get("source_field", "")),
+                        "suggested_target": str(r.get("target_field") or "unresolved"),
+                        "confidence": float(r.get("final_score", 0.0)),
+                        "status": "pending_review",
+                        "reason": str(r.get("reason", "Needs review based on confidence score.")),
+                    }
+                )
+                if len(items) >= max_items:
+                    break
+        except Exception:
+            continue
+    return items
+
+
+def _compute_sources_payload(demo_lane: str | None = None) -> dict:
+    files = _filtered_files(demo_lane)
     by_source: dict[str, dict] = {}
     totals = {"files_seen": len(files), "csv": 0, "xlsx": 0, "pdf": 0, "docs": 0}
     for file in files:
@@ -223,8 +401,8 @@ def _compute_sources_payload() -> dict:
     return {"sources": sources, "totals": totals}
 
 
-def _compute_mapping_summary_payload() -> dict:
-    files = stub_store.list_files().get("files", [])
+def _compute_mapping_summary_payload(demo_lane: str | None = None) -> dict:
+    files = _filtered_files(demo_lane)
     summary = {
         "total_fields_seen": 0,
         "auto_mapped": 0,
@@ -337,7 +515,30 @@ def _storage_validation_for_file(file_id: str, *, persist: bool, clear_table_bef
 
     details = stub_store.get_file_details(file_id)
     source_id = details["file"]["source_id"]
-    kind, columns, rows, _ = parse_file_preview(path)
+    try:
+        kind, columns, rows, _ = parse_file_preview(path)
+    except Exception as exc:
+        return {
+            "file_id": file_id,
+            "source_id": source_id,
+            "target_table": None,
+            "auto_fields_seen": 0,
+            "auto_fields_sql_mapped": 0,
+            "schema_conformance_percent": 0,
+            "rows_attempted": 0,
+            "rows_inserted": 0,
+            "rows_failed": 0,
+            "db_path": None,
+            "persisted": False,
+            "issues": [
+                {
+                    "severity": "high",
+                    "code": "parse_failure",
+                    "message": f"File parsing failed before database move checks: {exc}",
+                }
+            ],
+            "notes": ["No database move attempted because preview parsing failed."],
+        }
     if kind != "table":
         return {
             "file_id": file_id,
@@ -368,7 +569,7 @@ def _storage_validation_for_file(file_id: str, *, persist: bool, clear_table_bef
         accepted_targets=stub_store.accepted_target_counts(),
         correction_memory=stub_store.correction_memory_for_source(source_id),
     )
-    return validate_and_persist_auto_mapped_rows(
+    result = validate_and_persist_auto_mapped_rows(
         file_id=file_id,
         source_id=source_id,
         rows=rows,
@@ -376,7 +577,52 @@ def _storage_validation_for_file(file_id: str, *, persist: bool, clear_table_bef
         processed_db_path=settings.processed_db_path,
         clear_table_before_insert=clear_table_before_insert,
         persist=persist,
+        include_warning_candidates=settings.db_move_include_warnings,
+        warning_score_threshold=settings.db_move_warning_score_threshold,
     )
+    if (
+        (result.get("rows_attempted", 0) == 0 or result.get("schema_conformance_percent", 0) < 60)
+        and settings.ai_enabled
+    ):
+        ai = run_ai_assisted_mapping(
+            source_id=source_id,
+            columns=columns,
+            rows=rows,
+            accepted_targets=stub_store.accepted_target_counts(),
+            correction_memory=stub_store.correction_memory_for_source(source_id),
+        )
+        if ai.get("ai_available"):
+            ai_confidence_results = [
+                {
+                    "source_field": item.get("source_field"),
+                    "target_field": item.get("final_target"),
+                    "final_score": item.get("final_score", 0.0),
+                    "route": item.get("route", "manual_review"),
+                }
+                for item in ai.get("results", [])
+            ]
+            ai_result = validate_and_persist_auto_mapped_rows(
+                file_id=file_id,
+                source_id=source_id,
+                rows=rows,
+                confidence_results=ai_confidence_results,
+                processed_db_path=settings.processed_db_path,
+                clear_table_before_insert=clear_table_before_insert,
+                persist=persist,
+                include_warning_candidates=settings.db_move_include_warnings,
+                warning_score_threshold=settings.db_move_warning_score_threshold,
+            )
+            if ai_result.get("rows_attempted", 0) > result.get("rows_attempted", 0):
+                ai_result["notes"].append(
+                    "AI-assisted fallback applied because deterministic mapping produced low persistence coverage."
+                )
+                return ai_result
+            result["notes"].append(
+                "AI-assisted fallback evaluated but did not improve persistence coverage."
+            )
+        else:
+            result["notes"].append("AI-assisted fallback unavailable (provider not configured or disabled).")
+    return result
 
 
 def _build_database_move_candidate(file_item: dict, *, persist: bool, clear_table_before_insert: bool) -> tuple[dict, bool]:
@@ -472,19 +718,80 @@ def _compute_database_move_candidates(*, auto_move: bool) -> dict:
 
 # ---- Sources / categories ----
 @router.get("/sources", response_model=SourcesResponse)
-def list_sources() -> SourcesResponse:
-    return _compute_sources_payload()
+def list_sources(
+    demo_lane: str | None = Query(default=None),
+) -> SourcesResponse:
+    return _compute_sources_payload(demo_lane=demo_lane)
 
 
 # ---- Files / ingestion overview ----
 @router.get("/files", response_model=FilesResponse)
-def list_files() -> FilesResponse:
-    return stub_store.list_files()
+def list_files(
+    demo_lane: str | None = Query(default=None),
+) -> FilesResponse:
+    payload = stub_store.list_files()
+    files = _filtered_files(demo_lane)
+    if len(files) == len(payload.get("files", [])):
+        return payload
+    summary = {
+        "imported_files": len(files),
+        "successful_mappings": sum(1 for f in files if f.get("mapping_status") == "mapped"),
+        "mappings_with_warnings": sum(
+            1 for f in files if f.get("mapping_status") == "mapped_with_warnings"
+        ),
+        "failed_mappings": sum(1 for f in files if f.get("mapping_status") == "failed"),
+        "needs_review": sum(1 for f in files if f.get("mapping_status") == "needs_review"),
+    }
+    return {"files": files, "summary": summary}
 
 
 @router.get("/files/{file_id}", response_model=FileDetailsResponse)
 def get_file(file_id: str) -> FileDetailsResponse:
     return stub_store.get_file_details(file_id)
+
+
+@router.post("/demo/reset-uploads")
+def demo_reset_uploads() -> dict:
+    removed = stub_store.clear_uploads()
+    return {
+        "removed_uploads": removed,
+        "notes": ["In-memory uploaded files were cleared. Fixture files remain available."],
+    }
+
+
+@router.post("/demo/load-two-sources")
+def demo_load_two_sources() -> dict:
+    root = Path(__file__).resolve().parents[2]
+    raw_dir = root / "data" / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    demo_dirs = [
+        root / "data" / "demo_sources" / "expected_pass",
+        root / "data" / "demo_sources" / "error_heavy",
+    ]
+    stub_store.clear_uploads()
+    loaded = 0
+    missing_dirs: list[str] = []
+    for d in demo_dirs:
+        if not d.exists():
+            missing_dirs.append(str(d))
+            continue
+        for f in sorted(d.glob("*.csv")):
+            file_id = str(uuid4())
+            target = raw_dir / f"{file_id}_{f.name}"
+            target.write_bytes(f.read_bytes())
+            stub_store.register_upload(
+                file_id=file_id,
+                filename=f.name,
+                stored_path=str(target),
+                content_type="text/csv",
+                size_bytes=target.stat().st_size,
+            )
+            loaded += 1
+    return {
+        "loaded_files": loaded,
+        "missing_directories": missing_dirs,
+        "notes": ["Loaded expected-pass and error-heavy demo datasets into upload store."],
+    }
 
 
 @router.get("/files/{file_id}/preview", response_model=FilePreviewResponse)
@@ -505,8 +812,10 @@ def preview_file(file_id: str) -> FilePreviewResponse:
 
 # ---- Mapping status ----
 @router.get("/mapping/summary", response_model=MappingSummaryResponse)
-def mapping_summary() -> MappingSummaryResponse:
-    return _compute_mapping_summary_payload()
+def mapping_summary(
+    demo_lane: str | None = Query(default=None),
+) -> MappingSummaryResponse:
+    return _compute_mapping_summary_payload(demo_lane=demo_lane)
 
 
 @router.get("/mapping/canonical-model", response_model=CanonicalModelResponse)
@@ -914,28 +1223,53 @@ def export_normalized_csv(file_id: str) -> PlainTextResponse:
 
 
 @router.get("/mapping/alerts", response_model=MappingAlertsResponse)
-def mapping_alerts() -> MappingAlertsResponse:
-    _, _, alerts_payload = _compute_quality_payloads()
+def mapping_alerts(
+    demo_lane: str | None = Query(default=None),
+) -> MappingAlertsResponse:
+    _, _, alerts_payload = _compute_quality_payloads(demo_lane=demo_lane)
     return alerts_payload
 
 
 # ---- Quality insights ----
 @router.get("/quality/summary", response_model=QualitySummaryResponse)
-def quality_summary() -> QualitySummaryResponse:
-    summary_payload, _, _ = _compute_quality_payloads()
+def quality_summary(
+    demo_lane: str | None = Query(default=None),
+) -> QualitySummaryResponse:
+    summary_payload, _, _ = _compute_quality_payloads(demo_lane=demo_lane)
     return summary_payload
 
 
 @router.get("/quality/by-source", response_model=QualityBySourceResponse)
-def quality_by_source() -> QualityBySourceResponse:
-    _, by_source_payload, _ = _compute_quality_payloads()
+def quality_by_source(
+    demo_lane: str | None = Query(default=None),
+) -> QualityBySourceResponse:
+    _, by_source_payload, _ = _compute_quality_payloads(demo_lane=demo_lane)
     return by_source_payload
+
+
+@router.get("/quality/by-file", response_model=QualityByFileResponse)
+def quality_by_file(
+    demo_lane: str | None = Query(default=None),
+    source_id: str | None = Query(default=None),
+) -> QualityByFileResponse:
+    return _compute_quality_by_file_payload(demo_lane=demo_lane, source_id=source_id)
 
 
 # ---- Manual correction queue ----
 @router.get("/corrections/queue", response_model=CorrectionsQueueResponse)
-def corrections_queue() -> CorrectionsQueueResponse:
-    return stub_store.get_corrections()
+def corrections_queue(
+    source_id: str | None = Query(default=None),
+    demo_lane: str | None = Query(default=None),
+) -> CorrectionsQueueResponse:
+    # Demo mode: always derive review queue from current mapping output so the
+    # screen reflects current lane/source state without requiring persisted queue state.
+    live_queue = _build_live_review_queue(demo_lane=demo_lane, source_id=source_id)
+    summary = {
+        "pending_review": len(live_queue),
+        "accepted_today": 0,
+        "rejected_today": 0,
+    }
+    return {"queue": live_queue, "summary": summary}
 
 
 @router.post(
@@ -1024,7 +1358,7 @@ def get_runtime_config() -> RuntimeConfigResponse:
 def contract_version() -> ContractVersionResponse:
     return {
         "api_version": "v1",
-        "contract_version": "2026-03-19.7",
+        "contract_version": "2026-03-19.9",
         "stability": "locked",
         "breaking_change_policy": "No breaking changes in /api/v1; use /api/v2 for contract-breaking updates.",
     }

@@ -36,6 +36,20 @@ type QualityBySourceResponse = {
   items: QualityBySourceItem[];
 };
 
+type QualityByFileItem = {
+  file_id: string;
+  file_name: string;
+  source_id: string;
+  clean_percent: number;
+  missing_percent: number;
+  incorrect_percent: number;
+  parse_status: "ok" | "failed";
+};
+
+type QualityByFileResponse = {
+  items: QualityByFileItem[];
+};
+
 function TonePill({ tone, text }: { tone: string; text: string }) {
   const cls =
     tone === "good"
@@ -72,16 +86,19 @@ function Progress({ value, tone }: { value: number; tone: "good" | "warn" | "bad
 }
 
 export default function QualityPanel({
+  selectedDemoLane,
   selectedSourceId,
 }: {
+  selectedDemoLane: "all" | "error_heavy" | "expected_pass";
   selectedSourceId: string | null;
 }) {
   const [summary, setSummary] = useState<QualitySummaryResponse | null>(null);
   const [bySource, setBySource] = useState<QualityBySourceResponse | null>(null);
+  const [byFile, setByFile] = useState<QualityByFileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+  const [pickedFileId, setPickedFileId] = useState<string | null>(null);
   const [qualityFilter, setQualityFilter] = useState<
     "all" | "healthy" | "needs_attention" | "critical"
   >("all");
@@ -92,13 +109,21 @@ export default function QualityPanel({
       setLoading(true);
       setError(null);
       try {
-        const [s, b] = await Promise.all([
-          apiGet<QualitySummaryResponse>("/quality/summary"),
-          apiGet<QualityBySourceResponse>("/quality/by-source"),
+        const laneQS = selectedDemoLane === "all" ? "" : `demo_lane=${selectedDemoLane}`;
+        const laneSuffix = laneQS ? `?${laneQS}` : "";
+        const fileQS = selectedSourceId
+          ? `${laneQS ? `${laneQS}&` : ""}source_id=${encodeURIComponent(selectedSourceId)}`
+          : laneQS;
+        const fileSuffix = fileQS ? `?${fileQS}` : "";
+        const [s, b, bf] = await Promise.all([
+          apiGet<QualitySummaryResponse>(`/quality/summary${laneSuffix}`),
+          apiGet<QualityBySourceResponse>(`/quality/by-source${laneSuffix}`),
+          apiGet<QualityByFileResponse>(`/quality/by-file${fileSuffix}`),
         ]);
         if (!mounted) return;
         setSummary(s);
         setBySource(b);
+        setByFile(bf);
       } catch (e) {
         if (!mounted) return;
         setError(e instanceof Error ? e.message : "Failed to load quality.");
@@ -110,29 +135,20 @@ export default function QualityPanel({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [selectedDemoLane, selectedSourceId]);
 
   const selected = useMemo(() => {
     if (!bySource?.items?.length || !selectedSourceId) return null;
     return bySource.items.find((i) => i.source_id === selectedSourceId) ?? null;
   }, [bySource, selectedSourceId]);
 
-  useEffect(() => {
-    if (!bySource?.items?.length) return;
-    if (selectedSourceId) {
-      setPickedSourceId(selectedSourceId);
-      return;
-    }
-    setPickedSourceId(bySource.items[0]?.source_id ?? null);
-  }, [bySource, selectedSourceId]);
-
   const picked = useMemo(() => {
-    if (!bySource?.items?.length || !pickedSourceId) return null;
-    return bySource.items.find((i) => i.source_id === pickedSourceId) ?? null;
-  }, [bySource, pickedSourceId]);
+    if (!byFile?.items?.length || !pickedFileId) return null;
+    return byFile.items.find((i) => i.file_id === pickedFileId) ?? null;
+  }, [byFile, pickedFileId]);
 
   const filteredItems = useMemo(() => {
-    const list = bySource?.items ?? [];
+    const list = byFile?.items ?? [];
     if (qualityFilter === "healthy") {
       return list.filter((i) => i.clean_percent >= 75 && i.incorrect_percent <= 10);
     }
@@ -147,17 +163,24 @@ export default function QualityPanel({
       return list.filter((i) => i.clean_percent < 60 || i.incorrect_percent > 20);
     }
     return list;
-  }, [bySource, qualityFilter]);
+  }, [byFile, qualityFilter]);
 
   useEffect(() => {
     if (!filteredItems.length) return;
-    const exists = pickedSourceId
-      ? filteredItems.some((i) => i.source_id === pickedSourceId)
+    if (selectedSourceId) {
+      const firstForSource = filteredItems.find((i) => i.source_id === selectedSourceId);
+      if (firstForSource && firstForSource.file_id !== pickedFileId) {
+        setPickedFileId(firstForSource.file_id);
+        return;
+      }
+    }
+    const exists = pickedFileId
+      ? filteredItems.some((i) => i.file_id === pickedFileId)
       : false;
     if (!exists) {
-      setPickedSourceId(filteredItems[0].source_id);
+      setPickedFileId(filteredItems[0].file_id);
     }
-  }, [filteredItems, pickedSourceId]);
+  }, [filteredItems, pickedFileId, selectedSourceId]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -274,9 +297,9 @@ export default function QualityPanel({
             <div className="lg:col-span-7">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-zinc-100">By source</div>
+                  <div className="text-sm font-semibold text-zinc-100">By document</div>
                   <div className="mt-2 text-xs text-zinc-400">
-                    Clean/Missing/Incorrect distribution. Pick a source to focus.
+                    Clean/Missing/Incorrect distribution. Pick a file to focus.
                   </div>
                 </div>
                 <button
@@ -291,10 +314,10 @@ export default function QualityPanel({
               <div className="mt-4">
                 <div className="mb-3 flex flex-wrap gap-2">
                   {[
-                    { id: "all", label: `All (${bySource?.items?.length ?? 0})` },
+                    { id: "all", label: `All (${byFile?.items?.length ?? 0})` },
                     {
                       id: "healthy",
-                      label: `Healthy (${(bySource?.items ?? []).filter((i) => i.clean_percent >= 75 && i.incorrect_percent <= 10).length})`,
+                      label: `Healthy (${(byFile?.items ?? []).filter((i) => i.clean_percent >= 75 && i.incorrect_percent <= 10).length})`,
                     },
                     { id: "needs_attention", label: "Needs attention" },
                     { id: "critical", label: "Critical" },
@@ -318,16 +341,16 @@ export default function QualityPanel({
                   ))}
                 </div>
 
-                <label className="text-xs text-zinc-400">Source</label>
+                <label className="text-xs text-zinc-400">Document</label>
                 <select
-                  value={pickedSourceId ?? ""}
-                  onChange={(e) => setPickedSourceId(e.target.value)}
+                  value={pickedFileId ?? ""}
+                  onChange={(e) => setPickedFileId(e.target.value)}
                   disabled={!filteredItems.length}
                   className="select-premium mt-2 w-full px-4 py-3 text-sm text-zinc-100"
                 >
                   {filteredItems.map((i) => (
-                    <option key={i.source_id} value={i.source_id}>
-                      {i.source_id}
+                    <option key={i.file_id} value={i.file_id}>
+                      {i.file_name}
                     </option>
                   ))}
                 </select>
@@ -343,11 +366,11 @@ export default function QualityPanel({
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-zinc-100">
-                        {picked.source_id}
+                        {picked.file_name}
                       </div>
                       <div className="mt-1 text-xs text-zinc-400">
                         Clean {picked.clean_percent}% · Missing {picked.missing_percent}% · Incorrect{" "}
-                        {picked.incorrect_percent}%
+                        {picked.incorrect_percent}% · {picked.parse_status === "ok" ? "parsed" : "parse failed"}
                       </div>
                     </div>
                     <TonePill
@@ -370,7 +393,7 @@ export default function QualityPanel({
                 </motion.div>
               ) : (
                 <div className="mt-4 rounded-2xl bg-white/5 p-4 text-sm text-zinc-400 ring-1 ring-white/10">
-                  Select a source to view distribution.
+                  Select a document to view distribution.
                 </div>
               )}
             </div>

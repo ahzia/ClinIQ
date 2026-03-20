@@ -25,18 +25,7 @@ import MappingPanel from "./panels/MappingPanel";
 import QualityPanel from "./panels/QualityPanel";
 import CorrectionsPanel from "./panels/CorrectionsPanel";
 import SystemDiagnosticsPanel from "./panels/SystemDiagnosticsPanel";
-import {
-  DEMO_LANE_LABELS,
-  countFilesByDemoLane,
-  type DemoLaneKey,
-} from "@/lib/demoLanes";
-
-const OVERVIEW_LANE_ORDER: DemoLaneKey[] = [
-  "baseline",
-  "error_detection",
-  "mapping_robustness",
-  "validation_package",
-];
+import DatabaseMovePanel from "./panels/DatabaseMovePanel";
 
 type HealthResponse = {
   status: string;
@@ -150,7 +139,10 @@ type NavId =
   | "mapping"
   | "quality"
   | "corrections"
+  | "database"
   | "system";
+
+type DemoLane = "all" | "error_heavy" | "expected_pass";
 
 export default function AppShell() {
   const navItems = useMemo(
@@ -161,6 +153,7 @@ export default function AppShell() {
         { id: "mapping" as const, label: "Field Matching", icon: Sparkles },
         { id: "quality" as const, label: "Quality", icon: Database },
         { id: "corrections" as const, label: "Review & Fix", icon: ShieldCheck },
+        { id: "database" as const, label: "Ready for Database Move", icon: Database },
         { id: "system" as const, label: "System", icon: Settings2 },
       ] as const,
     []
@@ -172,6 +165,7 @@ export default function AppShell() {
     null
   );
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [selectedDemoLane, setSelectedDemoLane] = useState<DemoLane>("all");
 
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [contractVersion, setContractVersion] =
@@ -190,37 +184,10 @@ export default function AppShell() {
     useState<QualitySummaryResponse | null>(null);
   const [overviewCorrectionsSummary, setOverviewCorrectionsSummary] =
     useState<CorrectionsQueueResponse["summary"] | null>(null);
-  const [overviewFiles, setOverviewFiles] = useState<OverviewFileRow[]>([]);
 
   const [activeOverviewAlertId, setActiveOverviewAlertId] = useState<
     string | null
   >(null);
-
-  /** Demo-friendly default file/source so Mapping intelligence is one click away. */
-  useEffect(() => {
-    let mounted = true;
-    async function seedDemoSelection() {
-      try {
-        const r = await fetchJson<{ files: { id: string; source_id: string }[] }>(
-          `${API_BASE_URL}/files`
-        );
-        if (!mounted || !r.files?.length) return;
-        const preferred = ["f_clinic2_device", "f_epaac_1", "f_clinic3_header_broken"];
-        const found =
-          preferred.map((id) => r.files.find((f) => f.id === id)).find(Boolean) ??
-          r.files[0];
-        if (!found) return;
-        setSelectedFileId(found.id);
-        setSelectedSourceId(found.source_id);
-      } catch {
-        /* manual selection still works */
-      }
-    }
-    seedDemoSelection();
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -283,12 +250,16 @@ export default function AppShell() {
       setOverviewError(null);
 
       try {
+        // Overview is always global (all data) for demo narrative consistency.
+        const laneQuery = "";
         const [filesRes, mappingRes, alertsRes, qualityRes, corrRes] =
           await Promise.all([
-            fetchJson<FilesResponse>(`${API_BASE_URL}/files`),
-            fetchJson<MappingSummaryResponse>(`${API_BASE_URL}/mapping/summary`),
-            fetchJson<MappingAlertsResponse>(`${API_BASE_URL}/mapping/alerts`),
-            fetchJson<QualitySummaryResponse>(`${API_BASE_URL}/quality/summary`),
+            fetchJson<FilesResponse>(`${API_BASE_URL}/files${laneQuery}`),
+            fetchJson<MappingSummaryResponse>(
+              `${API_BASE_URL}/mapping/summary${laneQuery}`
+            ),
+            fetchJson<MappingAlertsResponse>(`${API_BASE_URL}/mapping/alerts${laneQuery}`),
+            fetchJson<QualitySummaryResponse>(`${API_BASE_URL}/quality/summary${laneQuery}`),
             fetchJson<CorrectionsQueueResponse>(
               `${API_BASE_URL}/corrections/queue`
             ),
@@ -300,7 +271,6 @@ export default function AppShell() {
         setOverviewMappingAlerts(alertsRes.alerts);
         setOverviewQualitySummary(qualityRes);
         setOverviewCorrectionsSummary(corrRes.summary);
-        setOverviewFiles(filesRes.files ?? []);
       } catch (e) {
         if (!mounted) return;
         setOverviewError(
@@ -331,28 +301,6 @@ export default function AppShell() {
     const avg = (missing + incorrect) / 2;
     return Math.max(0, Math.min(100, Math.round(avg)));
   }, [overviewQualitySummary]);
-
-  const laneCounts = useMemo(
-    () => countFilesByDemoLane(overviewFiles),
-    [overviewFiles]
-  );
-
-  const highAlertCount = useMemo(
-    () =>
-      overviewMappingAlerts?.filter((a) => a.severity === "high").length ?? 0,
-    [overviewMappingAlerts]
-  );
-
-  const validationNeedsAttention = useMemo(() => {
-    const q = overviewQualitySummary?.summary.overall_quality_score;
-    const qBad =
-      typeof q === "number"
-        ? q <= 10
-          ? q < 6.5
-          : q < 65
-        : false;
-    return highAlertCount > 0 || qBad;
-  }, [highAlertCount, overviewQualitySummary]);
 
   const itemsNeedingReview = useMemo(() => {
     const corr = overviewCorrectionsSummary?.pending_review ?? 0;
@@ -493,17 +441,27 @@ export default function AppShell() {
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-white">
-                  ClinIQ Workspace
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
-                  ClinIQ helps you combine healthcare files into one consistent format.
-                  It highlights risky matches, explains why they were flagged, and
-                  guides you to fix them quickly.
-                </p>
-                <div className="mt-3">
-                  <Pill tone="neutral">View: {activeNavLabel}</Pill>
-                </div>
+                {activeNav === "overview" ? (
+                  <>
+                    <h1 className="text-3xl font-semibold tracking-tight text-white">
+                      ClinIQ Workspace
+                    </h1>
+                    <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-300">
+                      ClinIQ helps you combine healthcare files into one consistent format.
+                      It highlights risky matches, explains why they were flagged, and
+                      guides you to fix them quickly.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="text-2xl font-semibold tracking-tight text-white">
+                      {activeNavLabel}
+                    </h1>
+                    <div className="mt-3">
+                      <Pill tone="neutral">Selected in Data Sources</Pill>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </motion.header>
@@ -593,59 +551,6 @@ export default function AppShell() {
                       {overviewError}
                     </div>
                   ) : null}
-
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <GlassCard className="p-6">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-zinc-100">
-                            Validation status
-                          </div>
-                          <div className="mt-2 text-xs text-zinc-500">
-                            High severity:{" "}
-                            <span className="font-semibold text-zinc-300">
-                              {highAlertCount}
-                            </span>
-                          </div>
-                        </div>
-                        <Pill tone={validationNeedsAttention ? "warn" : "good"}>
-                          {validationNeedsAttention
-                            ? "Needs attention"
-                            : "Looking good"}
-                        </Pill>
-                      </div>
-                    </GlassCard>
-
-                    <GlassCard className="p-6">
-                      <div className="text-sm font-semibold text-zinc-100">
-                        Demo file groups
-                      </div>
-                      <div className="mt-3 space-y-2">
-                        {OVERVIEW_LANE_ORDER.map((key) => {
-                          const meta = DEMO_LANE_LABELS[key];
-                          const n = laneCounts[key];
-                          return (
-                            <div
-                              key={key}
-                              className="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/10"
-                            >
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-zinc-100">
-                                  {meta.title}
-                                </div>
-                                <div className="text-xs text-zinc-500">
-                                  {meta.description}
-                                </div>
-                              </div>
-                              <Pill tone={n > 0 ? "good" : "neutral"}>
-                                {n} file{n === 1 ? "" : "s"}
-                              </Pill>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </GlassCard>
-                  </div>
 
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
                     <GlassCard className="p-6">
@@ -899,6 +804,8 @@ export default function AppShell() {
               ) : activeNav === "sources" ? (
                 <div className="mt-2">
                   <SourcesPanel
+                    selectedDemoLane={selectedDemoLane}
+                    onChangeDemoLane={setSelectedDemoLane}
                     selectedSourceId={selectedSourceId}
                     selectedFileId={selectedFileId}
                     onSelectSource={setSelectedSourceId}
@@ -908,17 +815,32 @@ export default function AppShell() {
               ) : activeNav === "mapping" ? (
                 <div className="mt-2">
                   <MappingPanel
+                    selectedDemoLane={selectedDemoLane}
                     selectedSourceId={selectedSourceId}
                     selectedFileId={selectedFileId}
+                    onSelectFile={setSelectedFileId}
                   />
                 </div>
               ) : activeNav === "quality" ? (
                 <div className="mt-2">
-                  <QualityPanel selectedSourceId={selectedSourceId} />
+                  <QualityPanel
+                    selectedDemoLane={selectedDemoLane}
+                    selectedSourceId={selectedSourceId}
+                  />
                 </div>
               ) : activeNav === "corrections" ? (
                 <div className="mt-2">
-                  <CorrectionsPanel />
+                  <CorrectionsPanel
+                    selectedDemoLane={selectedDemoLane}
+                    selectedSourceId={selectedSourceId}
+                  />
+                </div>
+              ) : activeNav === "database" ? (
+                <div className="mt-2">
+                  <DatabaseMovePanel
+                    selectedDemoLane={selectedDemoLane}
+                    selectedSourceId={selectedSourceId}
+                  />
                 </div>
               ) : activeNav === "system" ? (
                 <div className="mt-2">

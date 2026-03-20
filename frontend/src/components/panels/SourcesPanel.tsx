@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import GlassCard from "../ui/GlassCard";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 type Source = {
   id: string;
@@ -57,6 +57,12 @@ type FilesResponse = {
     failed_mappings: number;
     needs_review: number;
   };
+};
+
+type DemoLoadResponse = {
+  loaded_files: number;
+  missing_directories: string[];
+  notes: string[];
 };
 
 type FileDetailsResponse = {
@@ -156,11 +162,15 @@ function getSourceRisk(files: FileItem[] | null, sourceId: string) {
 }
 
 export default function SourcesPanel({
+  selectedDemoLane,
+  onChangeDemoLane,
   selectedSourceId,
   selectedFileId,
   onSelectSource,
   onSelectFile,
 }: {
+  selectedDemoLane: "all" | "error_heavy" | "expected_pass";
+  onChangeDemoLane: (lane: "all" | "error_heavy" | "expected_pass") => void;
   selectedSourceId: string | null;
   selectedFileId: string | null;
   onSelectSource: (id: string) => void;
@@ -182,10 +192,8 @@ export default function SourcesPanel({
   const [showAllRows, setShowAllRows] = useState(false);
   const [showAllNotes, setShowAllNotes] = useState(false);
 
-  const [leftTab, setLeftTab] = useState<"sources" | "files">("sources");
   const [rightTab, setRightTab] = useState<"preview" | "schema">("preview");
 
-  const [showAllSources, setShowAllSources] = useState(false);
   const [showAllFiles, setShowAllFiles] = useState(false);
 
   useEffect(() => {
@@ -195,10 +203,32 @@ export default function SourcesPanel({
       setLoading(true);
       setError(null);
       try {
-        const [s, f] = await Promise.all([
-          apiGet<SourcesResponse>("/sources"),
-          apiGet<FilesResponse>("/files"),
+        let [s, f] = await Promise.all([
+          apiGet<SourcesResponse>(
+            selectedDemoLane === "all"
+              ? "/sources"
+              : `/sources?demo_lane=${selectedDemoLane}`
+          ),
+          apiGet<FilesResponse>(
+            selectedDemoLane === "all"
+              ? "/files"
+              : `/files?demo_lane=${selectedDemoLane}`
+          ),
         ]);
+        if (
+          selectedDemoLane !== "all" &&
+          (f.files?.length ?? 0) === 0 &&
+          mounted
+        ) {
+          await apiPost<DemoLoadResponse, Record<string, never>>(
+            "/demo/load-two-sources",
+            {}
+          );
+          [s, f] = await Promise.all([
+            apiGet<SourcesResponse>(`/sources?demo_lane=${selectedDemoLane}`),
+            apiGet<FilesResponse>(`/files?demo_lane=${selectedDemoLane}`),
+          ]);
+        }
         if (!mounted) return;
         setSources(s);
         setFiles(f);
@@ -214,22 +244,18 @@ export default function SourcesPanel({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [selectedDemoLane]);
 
-  // Default selection once loaded
+  // Keep selected source valid for current lane/filter.
   useEffect(() => {
     if (!sources?.sources?.length) return;
-    if (!selectedSourceId) {
+    const exists = selectedSourceId
+      ? sources.sources.some((s) => s.id === selectedSourceId)
+      : false;
+    if (!exists) {
       onSelectSource(sources.sources[0].id);
-      setLeftTab("files");
     }
   }, [sources, selectedSourceId, onSelectSource]);
-
-  useEffect(() => {
-    // Reset "show more" states when switching between sources/files panels.
-    setShowAllSources(false);
-    setShowAllFiles(false);
-  }, [leftTab]);
 
   const filteredSources = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -265,7 +291,8 @@ export default function SourcesPanel({
       return;
     }
     if (selectedFile.source_id !== selectedSourceId) {
-      onSelectSource(selectedFile.source_id);
+      const first = all.find((f) => f.source_id === selectedSourceId) ?? null;
+      if (first) onSelectFile(first.id);
     }
   }, [files, selectedSourceId, selectedFileId, onSelectSource, onSelectFile]);
 
@@ -317,17 +344,11 @@ export default function SourcesPanel({
     return preview.rows.slice(0, previewRowLimit);
   }, [preview, showAllRows, previewRowLimit]);
 
-  const shownSources = useMemo(() => {
-    if (showAllSources) return filteredSources;
-    return filteredSources.slice(0, 5);
-  }, [filteredSources, showAllSources]);
-
   const shownFiles = useMemo(() => {
     if (showAllFiles) return filesForSelectedSource;
     return filesForSelectedSource.slice(0, 5);
   }, [filesForSelectedSource, showAllFiles]);
 
-  const sourcesCanExpand = filteredSources.length > 5;
   const filesCanExpand = filesForSelectedSource.length > 5;
 
   const selectedRisk =
@@ -339,7 +360,7 @@ export default function SourcesPanel({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="text-sm font-semibold text-zinc-100">
+          <div className="text-base font-semibold text-zinc-100">
             Browse your data
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -351,13 +372,24 @@ export default function SourcesPanel({
               tone="neutral"
               text={`Files: ${files?.files?.length ?? 0}`}
             />
-            {selectedFileId ? (
-              <TonePill tone="good" text={`Selected file: ${selectedFileId}`} />
-            ) : null}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
+            <label className="text-xs text-zinc-400">Dataset</label>
+            <select
+              value={selectedDemoLane}
+              onChange={(e) =>
+                onChangeDemoLane(e.target.value as "all" | "error_heavy" | "expected_pass")
+              }
+              className="ml-2 bg-transparent text-sm text-zinc-100"
+            >
+              <option value="all">All demo data</option>
+              <option value="error_heavy">Error-heavy dataset</option>
+              <option value="expected_pass">Expected-pass dataset</option>
+            </select>
+          </div>
           {selectedSourceId ? (
             <TonePill tone={selectedRisk.tone} text={selectedRisk.text} />
           ) : null}
@@ -375,37 +407,27 @@ export default function SourcesPanel({
 
       <GlassCard className="p-5">
         <div className="min-w-0 flex flex-col gap-4 lg:flex-row lg:items-stretch">
-          {/* Left: sources/files */}
+          {/* Left: files for selected source */}
           <div className="lg:w-[380px]">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-cyan-200" />
-                <div className="text-sm font-semibold text-zinc-100">Your files</div>
+                <div className="text-sm font-semibold text-zinc-100">Files</div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLeftTab("sources")}
-                  className={`rounded-2xl px-3 py-2 text-xs font-semibold ring-1 transition ${
-                    leftTab === "sources"
-                      ? "bg-white/10 ring-white/20 text-zinc-100"
-                      : "bg-white/5 ring-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  Sources
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLeftTab("files")}
-                  className={`rounded-2xl px-3 py-2 text-xs font-semibold ring-1 transition ${
-                    leftTab === "files"
-                      ? "bg-white/10 ring-white/20 text-zinc-100"
-                      : "bg-white/5 ring-white/10 text-zinc-300 hover:bg-white/10"
-                  }`}
-                >
-                  Files
-                </button>
-              </div>
+            </div>
+            <div className="mt-3">
+              <label className="text-xs text-zinc-400">Data source</label>
+              <select
+                value={selectedSourceId ?? ""}
+                onChange={(e) => onSelectSource(e.target.value)}
+                className="select-premium mt-2 w-full px-4 py-3 text-sm text-zinc-100"
+              >
+                {filteredSources.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mt-4">
@@ -421,65 +443,6 @@ export default function SourcesPanel({
               ) : error ? (
                 <div className="rounded-2xl bg-amber-500/10 p-4 text-sm text-amber-200 ring-1 ring-amber-400/20">
                   {error}
-                </div>
-              ) : leftTab === "sources" ? (
-                <div
-                  className={`pr-1 ${
-                    showAllSources
-                      ? "max-h-[520px] overflow-y-auto"
-                      : "max-h-[360px] overflow-y-hidden"
-                  }`}
-                >
-                  {shownSources.length ? (
-                    <div className="flex flex-col gap-2">
-                      {shownSources.map((s, idx) => {
-                        const isActive = s.id === selectedSourceId;
-                        const risk = getSourceRisk(files?.files ?? null, s.id);
-                        return (
-                          <motion.button
-                            key={s.id}
-                            type="button"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.25, delay: idx * 0.02 }}
-                            onClick={() => {
-                              onSelectSource(s.id);
-                              setLeftTab("files");
-                            }}
-                            className={`rounded-2xl p-4 text-left ring-1 transition ${
-                              isActive
-                                ? "bg-white/10 ring-white/20"
-                                : "bg-white/5 ring-white/10 hover:bg-white/10"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-sm font-semibold text-zinc-100">
-                                  {s.label}
-                                </div>
-                                <div className="mt-1 text-xs text-zinc-400">
-                                  {s.notes ?? "—"}
-                                </div>
-                              </div>
-                              <div className="shrink-0">
-                                <TonePill tone={risk.tone} text={risk.text} />
-                                <div className="mt-2 text-center text-[11px] text-zinc-400">
-                                  {s.file_count} files
-                                </div>
-                              </div>
-                            </div>
-                            <div className="mt-3 text-xs font-medium text-cyan-200">
-                              {formatFormats(s.formats)}
-                            </div>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl bg-white/5 p-4 text-sm text-zinc-400 ring-1 ring-white/10">
-                      No sources match your search.
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div
@@ -544,21 +507,7 @@ export default function SourcesPanel({
                   )}
                 </div>
               )}
-
-              {leftTab === "sources" && sourcesCanExpand ? (
-                <div className="mt-3">
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowAllSources((v) => !v)}
-                    className="w-full rounded-2xl bg-white/5 px-4 py-2 text-xs font-semibold text-cyan-200 ring-1 ring-white/10 hover:bg-white/10"
-                  >
-                    {showAllSources ? "Show less" : "Show more"}
-                  </motion.button>
-                </div>
-              ) : null}
-
-              {leftTab === "files" && filesCanExpand ? (
+              {filesCanExpand ? (
                 <div className="mt-3">
                   <motion.button
                     type="button"

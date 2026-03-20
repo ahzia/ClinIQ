@@ -144,20 +144,27 @@ class StubStore:
     ) -> None:
         suffix = Path(filename).suffix.lower()
         source_id = _infer_source_id(filename)
+        mapping_status, quality_status = _infer_demo_status(filename)
         self._uploads[file_id] = {
             "id": file_id,
             "name": filename,
             "source_id": source_id,
             "format": suffix.replace(".", ""),
             "status": "imported",
-            "mapping_status": "needs_review",
-            "quality_status": "unknown",
+            "mapping_status": mapping_status,
+            "quality_status": quality_status,
             "rows_estimate": 0,
             "path": stored_path,
             "content_type": content_type,
             "size_bytes": size_bytes,
             "imported_at": datetime.now(timezone.utc).isoformat(),
         }
+
+    def clear_uploads(self) -> int:
+        removed = len(self._uploads)
+        self._uploads = {}
+        self._auto_routes = {}
+        return removed
 
     def _find_correction(self, correction_id: str) -> dict | None:
         for item in self._corrections["queue"]:
@@ -304,6 +311,8 @@ stub_store = StubStore()
 
 def _infer_source_id(filename: str) -> str:
     f = filename.lower()
+    if "1hz" in f:
+        return "device_motion_1hz"
     if "nursing" in f:
         return "nursing_reports"
     if "medication" in f:
@@ -317,3 +326,18 @@ def _infer_source_id(filename: str) -> str:
     if "epa" in f:
         return "assessments_epaAC"
     return "assessments_epaAC"
+
+
+def _infer_demo_status(filename: str) -> tuple[str, str]:
+    f = filename.lower()
+    if f.startswith("expected__"):
+        if "epaac-data-3" in f:
+            return "needs_review", "mixed"
+        if "labs" in f or "1hz" in f:
+            return "mapped_with_warnings", "mixed"
+        return "mapped", "clean"
+    if f.startswith("error__"):
+        if "synth_labs" in f or "device_motion" in f:
+            return "failed", "mixed"
+        return "needs_review", "mixed"
+    return "needs_review", "unknown"

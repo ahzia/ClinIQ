@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Brain,
-  Database,
   GitBranch,
   LineChart,
   RefreshCw,
@@ -13,7 +12,7 @@ import {
 } from "lucide-react";
 
 import GlassCard from "../ui/GlassCard";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiPost, apiGet } from "@/lib/api";
 
 type FileRow = { id: string; name: string; source_id: string };
 type FilesListResponse = { files: FileRow[] };
@@ -101,22 +100,6 @@ type MappingRouteResponse = {
   notes: string[];
 };
 
-type StorageSqlLoadResponse = {
-  file_id: string;
-  source_id: string;
-  target_table: string | null;
-  auto_fields_seen: number;
-  auto_fields_sql_mapped: number;
-  schema_conformance_percent: number;
-  rows_attempted: number;
-  rows_inserted: number;
-  rows_failed: number;
-  db_path: string | null;
-  persisted: boolean;
-  issues: { severity: string; code: string; message: string }[];
-  notes: string[];
-};
-
 function MiniPill({ text, tone }: { text: string; tone: "good" | "warn" | "bad" | "neutral" }) {
   const cls =
     tone === "good"
@@ -133,17 +116,19 @@ function MiniPill({ text, tone }: { text: string; tone: "good" | "warn" | "bad" 
   );
 }
 
-const DEMO_FILE_IDS = ["f_clinic2_device", "f_epaac_1", "f_clinic3_header_broken"];
-
 export default function MappingIntelligenceSection({
   selectedFileId,
+  selectedSourceId,
+  selectedDemoLane,
+  onSelectFile,
 }: {
   selectedFileId: string | null;
+  selectedSourceId: string | null;
+  selectedDemoLane: "all" | "error_heavy" | "expected_pass";
+  onSelectFile: (id: string) => void;
 }) {
-  const [files, setFiles] = useState<FileRow[]>([]);
-  const [localFileId, setLocalFileId] = useState<string>("");
-
-  const [intelTab, setIntelTab] = useState<"ai" | "hypotheses" | "confidence" | "sql">("ai");
+  const [availableFiles, setAvailableFiles] = useState<FileRow[]>([]);
+  const [intelTab, setIntelTab] = useState<"ai" | "hypotheses" | "confidence">("ai");
 
   const [hypotheses, setHypotheses] = useState<MappingHypothesisResponse | null>(null);
   const [confidence, setConfidence] = useState<MappingConfidenceResponse | null>(null);
@@ -157,35 +142,30 @@ export default function MappingIntelligenceSection({
   const [routeLoading, setRouteLoading] = useState(false);
   const [includeWarnings, setIncludeWarnings] = useState(true);
 
-  const [sqlResult, setSqlResult] = useState<StorageSqlLoadResponse | null>(null);
-  const [sqlLoading, setSqlLoading] = useState(false);
-  const [sqlPersist, setSqlPersist] = useState(true);
-  const [sqlClear, setSqlClear] = useState(false);
-
   const [expandedExplain, setExpandedExplain] = useState<string | null>(null);
 
-  const effectiveFileId = localFileId || selectedFileId || "";
+  const effectiveFileId = selectedFileId || "";
 
   useEffect(() => {
-    let m = true;
-    apiGet<FilesListResponse>("/files")
-      .then((r) => {
-        if (!m) return;
-        setFiles(r.files ?? []);
-      })
-      .catch(() => {
-        if (m) setFiles([]);
-      });
-    return () => {
-      m = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (selectedFileId) {
-      setLocalFileId(selectedFileId);
+    let mounted = true;
+    async function run() {
+      try {
+        const laneQS = selectedDemoLane === "all" ? "" : `?demo_lane=${selectedDemoLane}`;
+        const res = await apiGet<FilesListResponse>(`/files${laneQS}`);
+        if (!mounted) return;
+        const list = selectedSourceId
+          ? (res.files ?? []).filter((f) => f.source_id === selectedSourceId)
+          : (res.files ?? []);
+        setAvailableFiles(list);
+      } catch {
+        if (mounted) setAvailableFiles([]);
+      }
     }
-  }, [selectedFileId]);
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedDemoLane, selectedSourceId]);
 
   const loadIntelligence = useCallback(async (fileId: string) => {
     if (!fileId) {
@@ -215,7 +195,6 @@ export default function MappingIntelligenceSection({
     setIntelError(null);
     setAiAssistError(null);
     setRouteResult(null);
-    setSqlResult(null);
     try {
       const [h, c, a] = await Promise.all([
         fetchJson<MappingHypothesisResponse>(`/mapping/hypotheses/${enc}`),
@@ -276,39 +255,47 @@ export default function MappingIntelligenceSection({
     }
   }
 
-  async function runSqlLoad() {
-    if (!effectiveFileId) return;
-    setSqlLoading(true);
-    try {
-      const res = await apiPost<
-        StorageSqlLoadResponse,
-        { persist: boolean; clear_table_before_insert: boolean }
-      >(`/storage/sql-load/${encodeURIComponent(effectiveFileId)}`, {
-        persist: sqlPersist,
-        clear_table_before_insert: sqlClear,
-      });
-      setSqlResult(res);
-    } catch (e) {
-      setSqlResult(null);
-      setIntelError(e instanceof Error ? e.message : "SQL load failed.");
-    } finally {
-      setSqlLoading(false);
-    }
-  }
-
-  function applyDemoPreset(id: string) {
-    setLocalFileId(id);
-  }
-
   const routeSummary = confidence?.route_summary ?? aiAssist?.route_summary;
+  const aiUsedCount = useMemo(() => {
+    if (!aiAssist?.results?.length) return 0;
+    return aiAssist.results.filter((r) => r.ai_score !== null).length;
+  }, [aiAssist]);
+  const matchAttribution = useMemo(() => {
+    if (!aiAssist?.results?.length) {
+      return {
+        deterministic_only:
+          (confidence?.results ?? []).filter((r) => r.final_score >= 0.75).length ?? 0,
+        ai_reviewed: 0,
+        ai_changed_target: 0,
+      };
+    }
+    const deterministicOnly = aiAssist.results.filter(
+      (r) => r.deterministic_score >= 0.75
+    ).length;
+    const aiReviewed = aiAssist.results.filter(
+      (r) => r.deterministic_score < 0.75 && r.ai_score !== null
+    ).length;
+    const aiChanged = aiAssist.results.filter(
+      (r) =>
+        r.deterministic_score < 0.75 &&
+        r.ai_score !== null &&
+        r.final_target &&
+        r.deterministic_target &&
+        r.final_target !== r.deterministic_target
+    ).length;
+    return {
+      deterministic_only: deterministicOnly,
+      ai_reviewed: aiReviewed,
+      ai_changed_target: aiChanged,
+    };
+  }, [aiAssist, confidence]);
 
   const tabs = useMemo(
     () =>
       [
         { id: "ai" as const, label: "AI-assisted", icon: Brain },
-        { id: "hypotheses" as const, label: "Hypotheses", icon: Sparkles },
-        { id: "confidence" as const, label: "Confidence", icon: LineChart },
-        { id: "sql" as const, label: "SQL proof", icon: Database },
+        { id: "hypotheses" as const, label: "Pattern candidates", icon: Sparkles },
+        { id: "confidence" as const, label: "Score details", icon: LineChart },
       ] as const,
     []
   );
@@ -334,38 +321,25 @@ export default function MappingIntelligenceSection({
         </motion.button>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <div className="md:col-span-2">
+      <div className="mt-4 text-sm text-zinc-400">
+        <div className="mb-2">
           <label className="text-xs text-zinc-400">File</label>
           <select
-            value={localFileId}
-            onChange={(e) => setLocalFileId(e.target.value)}
+            value={effectiveFileId}
+            onChange={(e) => onSelectFile(e.target.value)}
             className="select-premium mt-2 w-full px-4 py-3 text-sm text-zinc-100"
           >
-            <option value="">Select a file…</option>
-            {files.map((f) => (
+            <option value="">Select file…</option>
+            {availableFiles.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.id} — {f.name}
+                {f.name}
               </option>
             ))}
           </select>
         </div>
-        <div className="flex flex-col justify-end gap-2">
-          <div className="text-xs text-zinc-400">Demo presets</div>
-          <div className="flex flex-wrap gap-2">
-            {DEMO_FILE_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                disabled={!files.some((f) => f.id === id)}
-                onClick={() => applyDemoPreset(id)}
-                className="rounded-2xl bg-white/5 px-3 py-2 text-[11px] font-semibold text-cyan-200 ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-40"
-              >
-                {id}
-              </button>
-            ))}
-          </div>
-        </div>
+        {effectiveFileId
+          ? `Selected file: ${effectiveFileId}`
+          : "Select a file from Data Sources to see matching evidence."}
       </div>
 
       {intelError ? (
@@ -408,6 +382,17 @@ export default function MappingIntelligenceSection({
               {routeResult.warning_count} · Manual {routeResult.manual_review_count}
             </div>
           ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <MiniPill
+              tone="neutral"
+              text={`Pattern-based matches ${matchAttribution.deterministic_only}`}
+            />
+            <MiniPill tone="good" text={`AI-reviewed ${matchAttribution.ai_reviewed}`} />
+            <MiniPill
+              tone="warn"
+              text={`AI changed/clarified target ${matchAttribution.ai_changed_target}`}
+            />
+          </div>
         </div>
       ) : null}
 
@@ -473,9 +458,11 @@ export default function MappingIntelligenceSection({
                   <MiniPill
                     tone={aiAssist.ai_available ? "good" : "warn"}
                     text={
-                      aiAssist.ai_available
+                      !aiAssist.ai_available
+                        ? "LLM unavailable — deterministic baseline"
+                        : aiUsedCount > 0
                         ? "LLM-assisted layer active"
-                        : "LLM unavailable — deterministic baseline"
+                        : "LLM available — deterministic mapping sufficient"
                     }
                   />
                   <span className="text-xs text-zinc-500">
@@ -670,74 +657,7 @@ export default function MappingIntelligenceSection({
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={sqlPersist}
-                  onChange={(e) => setSqlPersist(e.target.checked)}
-                />
-                Persist to DB
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={sqlClear}
-                  onChange={(e) => setSqlClear(e.target.checked)}
-                />
-                Clear table before insert
-              </label>
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.98 }}
-                onClick={runSqlLoad}
-                disabled={!effectiveFileId || sqlLoading}
-                className="rounded-2xl bg-white/10 px-4 py-2 text-xs font-semibold text-zinc-100 ring-1 ring-white/20 hover:bg-white/15 disabled:opacity-50"
-              >
-                {sqlLoading ? "Running…" : "Run SQL conformance load"}
-              </motion.button>
-            </div>
-            {sqlResult ? (
-              <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <div className="text-xs text-zinc-400">Target table</div>
-                    <div className="mt-1 text-sm font-semibold text-zinc-100">
-                      {sqlResult.target_table ?? "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-400">Schema conformance</div>
-                    <div className="mt-1 text-sm font-semibold text-cyan-200">
-                      {sqlResult.schema_conformance_percent}%
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-400">Rows inserted / failed</div>
-                    <div className="mt-1 text-sm text-zinc-200">
-                      {sqlResult.rows_inserted} / {sqlResult.rows_failed}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-400">Issues</div>
-                    <div className="mt-1 text-sm text-zinc-200">{sqlResult.issues.length}</div>
-                  </div>
-                </div>
-                {sqlResult.notes?.length ? (
-                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-zinc-500">
-                    {sqlResult.notes.map((n, i) => (
-                      <li key={i}>{n}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ) : (
-              <div className="text-xs text-zinc-500">Run load to see conformance results.</div>
-            )}
-          </div>
-        )}
+        ) : null}
       </div>
     </GlassCard>
   );

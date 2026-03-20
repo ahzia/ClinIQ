@@ -22,14 +22,14 @@ export default function StatCard({
           </div>
         ) : null}
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-zinc-300">{label}</div>
+          <div className="text-base font-medium text-zinc-200">{label}</div>
           <div className="mt-2 flex items-baseline gap-2">
-            <div className="text-2xl font-semibold tracking-tight text-white">
+            <div className="text-3xl font-semibold tracking-tight text-white">
               {value}
             </div>
           </div>
           {hint ? (
-            <div className="mt-1 text-xs text-zinc-400">{hint}</div>
+            <div className="mt-1 text-sm text-zinc-300">{hint}</div>
           ) : null}
         </div>
       </div>

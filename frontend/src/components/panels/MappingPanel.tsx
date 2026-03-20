@@ -133,11 +133,15 @@ function ProgressBar({
 }
 
 export default function MappingPanel({
+  selectedDemoLane,
   selectedSourceId,
   selectedFileId,
+  onSelectFile,
 }: {
+  selectedDemoLane: "all" | "error_heavy" | "expected_pass";
   selectedSourceId: string | null;
   selectedFileId: string | null;
+  onSelectFile: (id: string) => void;
 }) {
   const [summary, setSummary] = useState<MappingSummaryResponse | null>(null);
   const [alerts, setAlerts] = useState<MappingAlertsResponse | null>(null);
@@ -166,9 +170,11 @@ export default function MappingPanel({
       setLoading(true);
       setError(null);
       try {
+        const laneQuery =
+          selectedDemoLane === "all" ? "" : `?demo_lane=${selectedDemoLane}`;
         const [s, a] = await Promise.all([
-          apiGet<MappingSummaryResponse>("/mapping/summary"),
-          apiGet<MappingAlertsResponse>("/mapping/alerts"),
+          apiGet<MappingSummaryResponse>(`/mapping/summary${laneQuery}`),
+          apiGet<MappingAlertsResponse>(`/mapping/alerts${laneQuery}`),
         ]);
         if (!mounted) return;
         setSummary(s);
@@ -184,7 +190,7 @@ export default function MappingPanel({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [selectedDemoLane]);
 
   useEffect(() => {
     let mounted = true;
@@ -259,8 +265,31 @@ export default function MappingPanel({
     }
   }
 
-  const max = summary?.summary.total_fields_seen ?? 0;
-  const allAlerts = useMemo(() => alerts?.alerts ?? [], [alerts]);
+  const scopedSummary = useMemo(() => {
+    if (!summary) return null;
+    if (!selectedSourceId) return summary.summary;
+    const hit = summary.by_source.find((s) => s.source_id === selectedSourceId);
+    const auto = hit?.auto_mapped ?? 0;
+    const needs = hit?.needs_review ?? 0;
+    const failed = hit?.failed ?? 0;
+    const total = auto + needs + failed;
+    return {
+      total_fields_seen: total,
+      auto_mapped: auto,
+      mapped_with_warning: 0,
+      needs_review: needs,
+      failed,
+    };
+  }, [summary, selectedSourceId]);
+
+  const max = scopedSummary?.total_fields_seen ?? 0;
+  const allAlerts = useMemo(
+    () =>
+      (alerts?.alerts ?? []).filter((a) =>
+        selectedSourceId ? a.source_id === selectedSourceId : true
+      ),
+    [alerts, selectedSourceId]
+  );
 
   const prioritizedAlerts = useMemo(() => {
     const sevRank: Record<MappingAlertItem["severity"], number> = {
@@ -312,8 +341,12 @@ export default function MappingPanel({
         />
       </div>
 
-      <MappingIntelligenceSection selectedFileId={selectedFileId} />
-
+      <MappingIntelligenceSection
+        selectedFileId={selectedFileId}
+        selectedSourceId={selectedSourceId}
+        selectedDemoLane={selectedDemoLane}
+        onSelectFile={onSelectFile}
+      />
       <GlassCard className="p-6">
         {loading ? (
           <div className="space-y-4">
@@ -341,7 +374,7 @@ export default function MappingPanel({
                       Match confidence summary
                     </div>
                     <div className="mt-1 text-xs text-zinc-400">
-                      {summary?.summary.total_fields_seen ?? 0} total fields
+                      {scopedSummary?.total_fields_seen ?? 0} total fields
                     </div>
                   </div>
                 </div>
@@ -362,25 +395,25 @@ export default function MappingPanel({
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <ProgressBar
                   label="Auto-mapped"
-                  value={summary?.summary.auto_mapped ?? 0}
+                  value={scopedSummary?.auto_mapped ?? 0}
                   max={max}
                   tone="good"
                 />
                 <ProgressBar
                   label="Mapped with warnings"
-                  value={summary?.summary.mapped_with_warning ?? 0}
+                  value={scopedSummary?.mapped_with_warning ?? 0}
                   max={max}
                   tone="warn"
                 />
                 <ProgressBar
                   label="Needs review"
-                  value={summary?.summary.needs_review ?? 0}
+                  value={scopedSummary?.needs_review ?? 0}
                   max={max}
                   tone="neutral"
                 />
                 <ProgressBar
                   label="Failed"
-                  value={summary?.summary.failed ?? 0}
+                  value={scopedSummary?.failed ?? 0}
                   max={max}
                   tone="bad"
                 />
@@ -391,7 +424,10 @@ export default function MappingPanel({
                   By source
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {summary?.by_source.map((s, idx) => (
+                  {(selectedSourceId
+                    ? summary?.by_source.filter((s) => s.source_id === selectedSourceId)
+                    : summary?.by_source
+                  )?.map((s, idx) => (
                     <motion.div
                       key={s.source_id}
                       initial={{ opacity: 0, y: 8 }}

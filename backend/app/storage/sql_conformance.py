@@ -7,6 +7,7 @@ from pathlib import Path
 
 SOURCE_TO_TABLE = {
     "device_motion": "tbImportDeviceMotionData",
+    "device_motion_1hz": "tbImportDevice1HzMotionData",
     "labs": "tbImportLabsData",
     "medication": "tbImportMedicationInpatientData",
     "nursing_reports": "tbImportNursingDailyReportsData",
@@ -25,11 +26,28 @@ TARGET_TO_SQL_COLUMN = {
         "fall_event_0_1": "coFall_event_0_1",
         "impact_magnitude_g": "coImpact_magnitude_g",
     },
+    "device_motion_1hz": {
+        "case_id": "coCaseId",
+        "patient_id": "coPatient_id",
+        "device_id": "coDevice_id",
+        "timestamp": "coTimestamp",
+        "movement_score_0_100": "coMovement_score_0_100",
+        "accel_x_m_s2": "coAccel_x_m_s2",
+        "accel_y_m_s2": "coAccel_y_m_s2",
+        "accel_z_m_s2": "coAccel_z_m_s2",
+        "accel_magnitude_g": "coAccel_magnitude_g",
+        "pressure_zone1_0_100": "coPressure_zone1_0_100",
+        "pressure_zone2_0_100": "coPressure_zone2_0_100",
+        "pressure_zone3_0_100": "coPressure_zone3_0_100",
+        "position_state": "coPosition_state",
+        "bed_exit_detected_0_1": "coBed_exit_detected_0_1",
+        "fall_event_0_1": "coFall_event_0_1",
+        "impact_magnitude_g": "coImpact_magnitude_g",
+        "post_fall_immobility_seconds": "coPost_fall_immobility_seconds",
+    },
     "labs": {
         "case_id": "coCaseId",
-        "patient_id": "coPatientId",
         "specimen_datetime": "coSpecimen_datetime",
-        "ward": "coWard",
     },
     "medication": {
         "case_id": "coCaseId",
@@ -59,8 +77,12 @@ TARGET_TO_SQL_COLUMN = {
         "ward": "coWard",
         "admission_date": "coAdmission_date",
         "discharge_date": "coDischarge_date",
+        "length_of_stay_days": "coLength_of_stay_days",
         "primary_icd10_code": "coPrimary_icd10_code",
+        "primary_icd10_description": "coPrimary_icd10_description_en",
+        "secondary_icd10_codes": "coSecondary_icd10_codes",
         "ops_codes": "coOps_codes",
+        "ops_descriptions": "ops_descriptions_en",
     },
     "assessments_epaAC": {
         "case_id": "coCaseId",
@@ -137,6 +159,8 @@ def validate_and_persist_auto_mapped_rows(
     processed_db_path: str,
     clear_table_before_insert: bool = False,
     persist: bool = True,
+    include_warning_candidates: bool = False,
+    warning_score_threshold: float = 0.80,
 ) -> dict:
     issues: list[dict] = []
     target_table = SOURCE_TO_TABLE.get(source_id)
@@ -177,23 +201,30 @@ def validate_and_persist_auto_mapped_rows(
         }
 
     mapper = TARGET_TO_SQL_COLUMN.get(source_id, {})
-    auto_items = [i for i in confidence_results if i.get("route") == "auto" and i.get("target_field")]
-    auto_fields_seen = len(auto_items)
+    selected_items = []
+    for i in confidence_results:
+        target_field = i.get("target_field")
+        if not target_field:
+            continue
+        route = i.get("route")
+        score = float(i.get("final_score", 0.0))
+        if route == "auto":
+            selected_items.append(i)
+            continue
+        if include_warning_candidates and route == "warning" and score >= warning_score_threshold:
+            selected_items.append(i)
+    auto_fields_seen = len(selected_items)
 
     sql_column_by_source: dict[str, str] = {}
-    for item in auto_items:
+    eligible_fields = 0
+    for item in selected_items:
         source_field = item.get("source_field")
         target_field = item.get("target_field")
         sql_col = mapper.get(target_field)
         if not sql_col:
-            issues.append(
-                {
-                    "severity": "medium",
-                    "code": "target_not_mapped_to_sql_column",
-                    "message": f"Auto target '{target_field}' has no SQL-column mapping for source {source_id}.",
-                }
-            )
+            # Some canonical fields intentionally do not exist in source-specific SQL tables.
             continue
+        eligible_fields += 1
         if sql_col not in schema_columns:
             issues.append(
                 {
@@ -206,7 +237,7 @@ def validate_and_persist_auto_mapped_rows(
         sql_column_by_source[str(source_field)] = sql_col
 
     auto_fields_sql_mapped = len(sql_column_by_source)
-    conformance = round((auto_fields_sql_mapped / max(1, auto_fields_seen)) * 100)
+    conformance = round((auto_fields_sql_mapped / max(1, eligible_fields)) * 100)
 
     prepared_rows: list[dict] = []
     for row in rows:
@@ -253,6 +284,10 @@ def validate_and_persist_auto_mapped_rows(
         f"SQL table selected: {target_table}",
         "Validation currently runs on preview sample rows.",
     ]
+    if include_warning_candidates:
+        notes.append(
+            f"Included warning routes with score >= {warning_score_threshold:.2f} for persistence candidacy."
+        )
     if persist:
         notes.append("Rows were written to sqlite DB using CreateImportTables.sql-derived table columns.")
     else:

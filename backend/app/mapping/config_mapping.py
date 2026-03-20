@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 
 
 RULES_DIR = Path(__file__).resolve().parents[2] / "configs" / "mapping_rules"
@@ -14,7 +15,11 @@ def list_mapping_rule_files() -> list[str]:
 
 
 def _normalize_key(name: str) -> str:
-    return name.strip().lower().replace("-", "_").replace(" ", "_")
+    base = re.sub(r"\(.*?\)", "", name).strip().lower()
+    base = base.replace("-", "_").replace(" ", "_").replace("/", "_")
+    base = re.sub(r"[^a-z0-9_]+", "", base)
+    base = re.sub(r"_+", "_", base).strip("_")
+    return base
 
 
 def load_mapping_rules(source_id: str) -> dict:
